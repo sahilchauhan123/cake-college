@@ -49,3 +49,4 @@ Your Supabase project is already configured and active:
 ## 📖 Documentation
 Detailed technical specifications, database schema (SQL), and RLS security policies are documented in **[BAKERY_PLATFORM_SPECIFICATION.md](file:///home/sahilfaceyou/Desktop/Project%20by%20Ai/bakery-shop/BAKERY_PLATFORM_SPECIFICATION.md)**.
 
+# cake-college
