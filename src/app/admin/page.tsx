@@ -335,6 +335,54 @@ export default function AdminDashboardPage() {
     }
   };
 
+  // Delete an order from Supabase
+  const handleDeleteOrder = async (orderId: string, orderNumber: string) => {
+    if (!window.confirm(`Are you sure you want to permanently delete order #${orderNumber}?`)) {
+      return;
+    }
+    try {
+      await supabase.from('order_items').delete().eq('order_id', orderId);
+      const { error } = await supabase.from('orders').delete().eq('id', orderId);
+      if (error) throw error;
+      setOrders((prev) => prev.filter((o) => o.id !== orderId));
+    } catch (err: any) {
+      console.error('Error deleting order:', err);
+      alert('Could not delete order: ' + (err.message || 'Error occurred'));
+    }
+  };
+
+  // Delete a custom cake request from Supabase
+  const handleDeleteCakeRequest = async (cakeId: string, requestNumber: string) => {
+    if (!window.confirm(`Are you sure you want to delete custom cake inquiry #${requestNumber}?`)) {
+      return;
+    }
+    try {
+      const { error } = await supabase.from('custom_cake_requests').delete().eq('id', cakeId);
+      if (error) throw error;
+      setCakeRequests((prev) => prev.filter((c) => c.id !== cakeId));
+    } catch (err: any) {
+      console.error('Error deleting inquiry:', err);
+      alert('Could not delete inquiry: ' + (err.message || 'Error occurred'));
+    }
+  };
+
+  // Quick category creation
+  const handleCreateCategory = async (name: string) => {
+    if (!name.trim()) return;
+    try {
+      const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+      const { data, error } = await (supabase.from('categories') as any)
+        .insert({ name: name.trim(), slug, display_order: categories.length + 1 })
+        .select()
+        .single();
+      if (error) throw error;
+      setCategories((prev) => [...prev, data]);
+      setFormCategoryId(data.id);
+    } catch (err: any) {
+      alert('Could not create category: ' + (err.message || 'Error occurred'));
+    }
+  };
+
   // Toggle product stock availability in Supabase
   const handleToggleProductStock = async (productId: string, currentStatus: boolean) => {
     try {
@@ -900,60 +948,6 @@ export default function AdminDashboardPage() {
 
         {/* Content Container */}
         <div className="p-6 md:p-8 space-y-6 flex-1">
-          {/* Quick Filter Pill Selector (CoinDesk Style) */}
-          <div className="flex items-center gap-2 overflow-x-auto pb-1">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 mr-1 shrink-0">
-              Views:
-            </span>
-            <button
-              onClick={() => setActiveTab('dashboard')}
-              className={`text-xs px-4 py-1.5 rounded-full font-semibold whitespace-nowrap transition-all ${
-                activeTab === 'dashboard'
-                  ? 'bg-slate-900 text-white shadow-xs'
-                  : 'bg-white text-slate-600 hover:text-slate-900 hover:bg-slate-100 border border-slate-100'
-              }`}
-            >
-              Overview
-            </button>
-            <button
-              onClick={() => setActiveTab('orders')}
-              className={`text-xs px-4 py-1.5 rounded-full font-semibold whitespace-nowrap transition-all ${
-                activeTab === 'orders'
-                  ? 'bg-[#E4007C] text-white shadow-xs'
-                  : 'bg-white text-slate-600 hover:text-slate-900 hover:bg-slate-100 border border-slate-100'
-              }`}
-            >
-              Live Orders ({orders.length})
-            </button>
-            <button
-              onClick={() => setActiveTab('custom-cakes')}
-              className={`text-xs px-4 py-1.5 rounded-full font-semibold whitespace-nowrap transition-all ${
-                activeTab === 'custom-cakes'
-                  ? 'bg-[#E4007C] text-white shadow-xs'
-                  : 'bg-white text-slate-600 hover:text-slate-900 hover:bg-slate-100 border border-slate-100'
-              }`}
-            >
-              Custom Cakes ({cakeRequests.length})
-            </button>
-            <button
-              onClick={() => setActiveTab('inventory')}
-              className={`text-xs px-4 py-1.5 rounded-full font-semibold whitespace-nowrap transition-all ${
-                activeTab === 'inventory'
-                  ? 'bg-[#E4007C] text-white shadow-xs'
-                  : 'bg-white text-slate-600 hover:text-slate-900 hover:bg-slate-100 border border-slate-100'
-              }`}
-            >
-              Menu Items ({products.length})
-            </button>
-            <button
-              onClick={handleOpenCreateModal}
-              className="text-xs px-3 py-1.5 rounded-full font-semibold whitespace-nowrap transition-all border border-dashed border-[#E4007C]/50 text-[#E4007C] hover:bg-pink-50 flex items-center gap-1 cursor-pointer"
-            >
-              <Plus className="w-3.5 h-3.5" />
-              <span>Add Item</span>
-            </button>
-          </div>
-
           {/* MAIN DASHBOARD VIEW (Clean, refined SaaS layout matching CoinDesk structure) */}
           {activeTab === 'dashboard' && (
             <div className="space-y-6">
@@ -1331,13 +1325,23 @@ export default function AdminDashboardPage() {
                               </span>
                             </div>
 
-                            <span
-                              className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full ${
-                                statusColors[order.order_status || 'PENDING']
-                              }`}
-                            >
-                              {order.order_status || 'PENDING'}
-                            </span>
+                            <div className="flex items-center gap-2">
+                              <span
+                                className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full ${
+                                  statusColors[order.order_status || 'PENDING']
+                                }`}
+                              >
+                                {order.order_status || 'PENDING'}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteOrder(order.id, order.order_number)}
+                                className="p-1 rounded-lg text-slate-300 hover:text-red-600 hover:bg-red-50 transition-colors"
+                                title="Delete Order Record"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
                           </div>
 
                           {/* Customer Info */}
@@ -1550,13 +1554,22 @@ export default function AdminDashboardPage() {
                               </span>
                             </div>
 
-                            <span
-                              className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full ${
-                                statusBadgeColors[cakeStatus] || statusBadgeColors.PENDING
-                              }`}
-                            >
-                              {cakeStatus}
-                            </span>
+                            <div className="flex items-center gap-1.5">
+                              <span
+                                className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full ${
+                                  statusBadgeColors[cakeStatus] || statusBadgeColors.PENDING
+                                }`}
+                              >
+                                {cakeStatus}
+                              </span>
+                              <button
+                                onClick={() => handleDeleteCakeRequest(cake.id, cake.request_number)}
+                                title="Delete inquiry"
+                                className="text-slate-300 hover:text-red-500 hover:bg-red-50 p-1 rounded-lg transition-all"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
                           </div>
 
                           <div className="flex gap-4 py-3">
@@ -1978,9 +1991,21 @@ export default function AdminDashboardPage() {
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1.5">
-                      Category *
-                    </label>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <label className="block text-xs font-semibold text-slate-700">
+                        Category *
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const catName = window.prompt('Enter new category name (e.g. Cupcakes, Cheesecakes):');
+                          if (catName) handleCreateCategory(catName);
+                        }}
+                        className="text-[11px] font-semibold text-[#E4007C] hover:underline cursor-pointer"
+                      >
+                        + Add Category
+                      </button>
+                    </div>
                     <select
                       value={formCategoryId}
                       onChange={(e) => setFormCategoryId(e.target.value)}
