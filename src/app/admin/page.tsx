@@ -237,6 +237,13 @@ export default function AdminDashboardPage() {
           fetchData();
         }
       )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'custom_cake_requests' },
+        () => {
+          fetchData();
+        }
+      )
       .subscribe();
 
     return () => {
@@ -253,6 +260,78 @@ export default function AdminDashboardPage() {
       );
     } catch (err) {
       console.error('Error updating order:', err);
+    }
+  };
+
+  // Update custom cake request status in Supabase
+  const handleUpdateCakeStatus = async (cakeId: string, newStatus: string) => {
+    try {
+      await (supabase.from('custom_cake_requests') as any).update({ status: newStatus }).eq('id', cakeId);
+      setCakeRequests((prev) =>
+        prev.map((c) => (c.id === cakeId ? { ...c, status: newStatus } : c))
+      );
+    } catch (err) {
+      console.error('Error updating custom cake status:', err);
+    }
+  };
+
+  // Convert custom cake request directly into a live kitchen order
+  const handleConvertCakeToOrder = async (cake: CustomCakeRequest) => {
+    try {
+      const orderNumber = `ORD-CAKE-${Date.now().toString().slice(-4)}`;
+      const price = Number(cake.quoted_price || 1200);
+
+      // 1. Insert into orders table
+      const { data: newOrder, error: orderErr } = await (supabase.from('orders') as any)
+        .insert({
+          order_number: orderNumber,
+          customer_name: cake.customer_name,
+          customer_phone: cake.customer_phone,
+          customer_email: cake.customer_email || null,
+          fulfillment_type: 'PICKUP',
+          delivery_date: cake.event_date,
+          delivery_slot: cake.delivery_slot,
+          order_notes: `Custom Cake: ${cake.cake_type} (${cake.tier_count} tier, ${cake.estimated_weight_kg}kg). Flavors: ${cake.sponge_flavor} + ${cake.filling_flavor}. Inscription: ${cake.message_on_cake || 'None'}. Special Notes: ${cake.special_instructions || 'None'}`,
+          subtotal: price,
+          delivery_fee: 0,
+          grand_total: price,
+          payment_method: 'STORE_PICKUP',
+          payment_status: 'PENDING',
+          order_status: 'BAKING',
+        })
+        .select()
+        .single();
+
+      if (orderErr) throw orderErr;
+
+      // 2. Insert order items
+      if (newOrder?.id) {
+        await (supabase.from('order_items') as any).insert({
+          order_id: newOrder.id,
+          product_name: `Custom ${cake.cake_type} (${cake.estimated_weight_kg}kg)`,
+          selected_size: `${cake.tier_count} Tier(s)`,
+          cake_message: cake.message_on_cake || null,
+          quantity: 1,
+          unit_price: price,
+          total_price: price,
+        });
+      }
+
+      // 3. Mark custom cake request as BAKING / converted
+      await (supabase.from('custom_cake_requests') as any)
+        .update({ status: 'BAKING' })
+        .eq('id', cake.id);
+
+      setCakeRequests((prev) =>
+        prev.map((c) => (c.id === cake.id ? { ...c, status: 'BAKING' } : c))
+      );
+
+      // 4. Refresh data and switch to live orders tab
+      await fetchData();
+      setActiveTab('orders');
+    } catch (err: any) {
+      console.error('Error converting cake to order:', err);
+      alert('Could not convert cake to order: ' + (err.message || 'Error occurred'));
     }
   };
 
@@ -1335,6 +1414,23 @@ export default function AdminDashboardPage() {
                                     )}
                                   </div>
                                 ))}
+
+                                {/* Delivery Fee Breakdown Row */}
+                                {order.fulfillment_type === 'DELIVERY' && (
+                                  <div className="pt-2 border-t border-slate-200/60 flex items-center justify-between text-xs font-medium text-slate-500">
+                                    <span className="flex items-center gap-1">
+                                      <Truck className="w-3.5 h-3.5 text-[#E4007C]" />
+                                      <span>Home Delivery Fee</span>
+                                    </span>
+                                    <span className="font-semibold text-slate-800">
+                                      {order.delivery_fee && Number(order.delivery_fee) > 0
+                                        ? `+₹${Math.round(Number(order.delivery_fee))}`
+                                        : (Number(order.grand_total) > (order.subtotal || 650)
+                                            ? `+₹${Math.round(Number(order.grand_total) - Number(order.subtotal || 650))}`
+                                            : 'FREE')}
+                                    </span>
+                                  </div>
+                                )}
                               </div>
                             ) : (
                               <div className="text-xs text-slate-500 italic py-1">
@@ -1354,7 +1450,14 @@ export default function AdminDashboardPage() {
                         {/* Footer Actions */}
                         <div className="pt-3 border-t border-slate-100 flex items-center justify-between">
                           <div>
-                            <span className="text-[10px] text-slate-400 font-medium block">Total</span>
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-[10px] text-slate-400 font-medium block">Total</span>
+                              {order.fulfillment_type === 'DELIVERY' && (Number(order.delivery_fee || 0) > 0 || Number(order.grand_total) > Number(order.subtotal || 650)) && (
+                                <span className="text-[10px] text-slate-400 font-normal">
+                                  (Cake ₹{Math.round(Number(order.subtotal || (Number(order.grand_total) - Number(order.delivery_fee || 60))))} + Delivery ₹{Math.round(Number(order.delivery_fee || (Number(order.grand_total) - Number(order.subtotal || 650))))})
+                                </span>
+                              )}
+                            </div>
                             <span className="font-bold text-base text-[#E4007C]">
                               ₹{Math.round(Number(order.grand_total)).toLocaleString('en-IN')}
                             </span>
@@ -1418,6 +1521,19 @@ export default function AdminDashboardPage() {
                     const refImage = cake.reference_image_urls?.[0];
                     const waReplyText = `Hi ${cake.customer_name}! Thank you for your custom cake inquiry #${cake.request_number} for ${cake.event_date}. We can create this ${cake.cake_type} for an estimated quotation of ₹${cake.quoted_price || 1200}. Would you like us to proceed? 🎂`;
 
+                    const cakeStatus = cake.status || 'PENDING';
+                    const statusBadgeColors: Record<string, string> = {
+                      PENDING: 'bg-amber-50 text-amber-700 border border-amber-200',
+                      CONFIRMED: 'bg-blue-50 text-blue-700 border border-blue-200',
+                      BAKING: 'bg-pink-50 text-[#E4007C] border border-pink-200',
+                      READY: 'bg-emerald-50 text-emerald-700 border border-emerald-200',
+                      COMPLETED: 'bg-emerald-100 text-emerald-800 border border-emerald-300',
+                      CANCELLED: 'bg-slate-100 text-slate-600 border border-slate-200',
+                    };
+
+                    const cleanPhone = cake.customer_phone ? cake.customer_phone.replace(/\D/g, '') : '';
+                    const hasValidPhone = cleanPhone.length >= 6;
+
                     return (
                       <div
                         key={cake.id}
@@ -1434,8 +1550,12 @@ export default function AdminDashboardPage() {
                               </span>
                             </div>
 
-                            <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200">
-                              {cake.status || 'PENDING'}
+                            <span
+                              className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full ${
+                                statusBadgeColors[cakeStatus] || statusBadgeColors.PENDING
+                              }`}
+                            >
+                              {cakeStatus}
                             </span>
                           </div>
 
@@ -1473,7 +1593,7 @@ export default function AdminDashboardPage() {
                           )}
                         </div>
 
-                        <div className="pt-3 border-t border-slate-100 flex items-center justify-between">
+                        <div className="pt-3 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2.5">
                           <div>
                             <span className="text-[10px] text-slate-400 font-medium block">Quoted Price</span>
                             <span className="font-bold text-base text-slate-900">
@@ -1481,15 +1601,91 @@ export default function AdminDashboardPage() {
                             </span>
                           </div>
 
-                          <a
-                            href={`https://wa.me/${cake.customer_phone.replace(/\D/g, '')}?text=${encodeURIComponent(waReplyText)}`}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="px-3.5 py-1.5 rounded-xl bg-[#25D366] hover:bg-[#20ba59] text-white text-xs font-semibold flex items-center gap-1.5 transition-all shadow-xs"
-                          >
-                            <MessageCircle className="w-3.5 h-3.5" />
-                            Reply WhatsApp
-                          </a>
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            {/* WhatsApp Direct Reply */}
+                            {hasValidPhone && (
+                              <a
+                                href={`https://wa.me/${cleanPhone}?text=${encodeURIComponent(waReplyText)}`}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="px-3 py-1.5 rounded-xl bg-[#25D366] hover:bg-[#20ba59] text-white text-xs font-semibold flex items-center gap-1.5 transition-all shadow-xs"
+                              >
+                                <MessageCircle className="w-3.5 h-3.5" />
+                                <span>WhatsApp</span>
+                              </a>
+                            )}
+
+                            {/* Lifecycle / Complete Order Actions */}
+                            {(cakeStatus === 'PENDING' || !cakeStatus) && (
+                              <>
+                                <button
+                                  type="button"
+                                  onClick={() => handleUpdateCakeStatus(cake.id, 'CONFIRMED')}
+                                  className="px-3 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold transition-all shadow-xs cursor-pointer"
+                                >
+                                  Accept &amp; Confirm
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleConvertCakeToOrder(cake)}
+                                  className="px-3 py-1.5 rounded-xl bg-[#E4007C] hover:bg-[#D00070] text-white text-xs font-semibold flex items-center gap-1 transition-all shadow-xs cursor-pointer"
+                                  title="Convert to Live Kitchen Order and start baking"
+                                >
+                                  <Flame className="w-3.5 h-3.5" />
+                                  <span>Send to Oven</span>
+                                </button>
+                              </>
+                            )}
+
+                            {cakeStatus === 'CONFIRMED' && (
+                              <button
+                                type="button"
+                                onClick={() => handleUpdateCakeStatus(cake.id, 'BAKING')}
+                                className="px-3 py-1.5 rounded-xl bg-[#E4007C] hover:bg-[#D00070] text-white text-xs font-semibold flex items-center gap-1 transition-all shadow-xs cursor-pointer"
+                              >
+                                <Flame className="w-3.5 h-3.5" />
+                                <span>Start Baking</span>
+                              </button>
+                            )}
+
+                            {cakeStatus === 'BAKING' && (
+                              <div className="flex items-center gap-1.5">
+                                <button
+                                  type="button"
+                                  onClick={() => setActiveTab('orders')}
+                                  className="px-3 py-1.5 rounded-xl bg-pink-50 text-[#E4007C] border border-pink-200 hover:bg-pink-100 text-xs font-semibold flex items-center gap-1 transition-all cursor-pointer"
+                                >
+                                  <span>View in Live Orders →</span>
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleUpdateCakeStatus(cake.id, 'READY')}
+                                  className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold flex items-center gap-1 transition-all shadow-xs cursor-pointer"
+                                >
+                                  <CheckCircle className="w-3.5 h-3.5" />
+                                  <span>Mark Ready</span>
+                                </button>
+                              </div>
+                            )}
+
+                            {cakeStatus === 'READY' && (
+                              <button
+                                type="button"
+                                onClick={() => handleUpdateCakeStatus(cake.id, 'COMPLETED')}
+                                className="px-3 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold flex items-center gap-1 transition-all shadow-xs cursor-pointer"
+                              >
+                                <Check className="w-3.5 h-3.5 text-emerald-400" />
+                                <span>Complete &amp; Deliver</span>
+                              </button>
+                            )}
+
+                            {cakeStatus === 'COMPLETED' && (
+                              <span className="px-3 py-1.5 rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-semibold flex items-center gap-1">
+                                <CheckCircle className="w-3.5 h-3.5 text-emerald-600" />
+                                <span>Order Completed</span>
+                              </span>
+                            )}
+                          </div>
                         </div>
                       </div>
                     );
