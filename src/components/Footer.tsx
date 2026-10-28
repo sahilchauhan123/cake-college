@@ -1,30 +1,62 @@
 import React from 'react';
 import Link from 'next/link';
-import { ChefHat, Phone, MapPin, Clock, Heart } from 'lucide-react';
+import { Phone, MapPin, Clock, Heart, Sparkles, Send } from 'lucide-react';
 import { BAKERY_WHATSAPP_NUMBER, getWhatsAppUrl } from '../lib/whatsapp';
 
 export default function Footer() {
   return (
-    <footer className="bg-[#231815] text-[#FAF4EB] pt-16 pb-24 md:pb-12 border-t border-[#42312C]">
+    <footer className="bg-[#111111] text-[#FAFAFA] pt-16 pb-24 md:pb-12 border-t-2 border-[#111111]">
       <div className="container-custom">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-10 pb-12 border-b border-[#42312C]">
+        {/* Milk Bar Style Newsletter Banner */}
+        <div className="bg-[#FFF0F6] border-2 border-[#111111] rounded-2xl p-6 md:p-8 mb-16 text-[#111111] flex flex-col md:flex-row items-center justify-between gap-6 shadow-[5px_5px_0px_#E4007C]">
+          <div>
+            <span className="text-[10px] font-black uppercase tracking-widest text-[#E4007C] flex items-center gap-1.5 mb-1">
+              <Sparkles className="w-3.5 h-3.5" />
+              JOIN THE DESSERT CLUB
+            </span>
+            <h3 className="text-2xl md:text-3xl font-black uppercase tracking-tight text-[#111111]">
+              GET 10% OFF YOUR FIRST ORDER
+            </h3>
+            <p className="text-xs text-[#6B7280] font-medium mt-1">
+              Secret cake drop announcements, limited edition bakes &amp; birthday perks.
+            </p>
+          </div>
+          <div className="flex w-full md:w-auto gap-2">
+            <input
+              type="email"
+              placeholder="Enter your email"
+              className="px-4 py-3 rounded-full bg-white border-2 border-[#111111] text-xs font-semibold focus:outline-none focus:border-[#E4007C] w-full md:w-64"
+            />
+            <button
+              type="button"
+              className="btn-primary !py-3 !px-6 text-xs whitespace-nowrap"
+            >
+              <Send className="w-3.5 h-3.5" />
+              <span>SUBSCRIBE</span>
+            </button>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-10 pb-12 border-b border-white/10">
           {/* Brand Info */}
           <div>
             <div className="flex items-center gap-3 mb-4">
-              <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-[#8B4513] to-[#D97706] flex items-center justify-center text-white">
-                <ChefHat className="w-5 h-5" />
+              <div className="w-10 h-10 rounded-full bg-[#E4007C] flex items-center justify-center text-white font-black text-lg">
+                SD
               </div>
-              <span className="font-serif text-2xl font-bold tracking-tight">Sweet Delight</span>
+              <span className="font-extrabold text-2xl tracking-tighter text-white uppercase">
+                Sweet Delight<span className="text-[#E4007C]">.</span>
+              </span>
             </div>
-            <p className="text-sm text-[#D5C7BC] leading-relaxed mb-6">
-              Baking happiness daily using pure cultured Normandy butter, stoneground unbleached flours, and single-origin Belgian chocolate.
+            <p className="text-xs text-[#A1A1AA] leading-relaxed mb-6 font-medium">
+              A playful dessert lab crafting iconic celebration cakes, Bombay mawa loaves, 100% pure eggless bakes, and sourdough daily.
             </p>
             <div className="flex items-center gap-3">
               <a
                 href="https://instagram.com"
                 target="_blank"
                 rel="noreferrer"
-                className="w-9 h-9 rounded-full bg-[#42312C] hover:bg-[#8B4513] text-white flex items-center justify-center transition-colors"
+                className="w-9 h-9 rounded-full bg-[#242424] hover:bg-[#E4007C] text-white flex items-center justify-center transition-colors"
                 aria-label="Instagram"
               >
                 <svg className="w-4 h-4 fill-current" viewBox="0 0 24 24">
@@ -32,21 +64,10 @@ export default function Footer() {
                 </svg>
               </a>
               <a
-                href="https://facebook.com"
+                href={getWhatsAppUrl("Namaste Sweet Delight! I'd like to ask a question about your bakery menu.")}
                 target="_blank"
                 rel="noreferrer"
-                className="w-9 h-9 rounded-full bg-[#42312C] hover:bg-[#8B4513] text-white flex items-center justify-center transition-colors"
-                aria-label="Facebook"
-              >
-                <svg className="w-4 h-4 fill-current" viewBox="0 0 24 24">
-                  <path d="M22.675 0h-21.35c-.732 0-1.325.593-1.325 1.325v21.351c0 .731.593 1.324 1.325 1.324h11.495v-9.294h-3.128v-3.622h3.128v-2.671c0-3.1 1.893-4.788 4.659-4.788 1.325 0 2.463.099 2.795.143v3.24l-1.918.001c-1.504 0-1.795.715-1.795 1.763v2.313h3.587l-.467 3.622h-3.12v9.293h6.116c.73 0 1.323-.593 1.323-1.325v-21.35c0-.732-.593-1.325-1.325-1.325z" />
-                </svg>
-              </a>
-              <a
-                href={getWhatsAppUrl("Hi Sweet Delight! I'd like to ask a question about your bakery menu.")}
-                target="_blank"
-                rel="noreferrer"
-                className="w-9 h-9 rounded-full bg-[#25D366] hover:bg-[#20BD5A] text-white flex items-center justify-center transition-colors"
+                className="w-9 h-9 rounded-full bg-[#00E5A3] hover:bg-[#10B981] text-[#111111] flex items-center justify-center transition-colors"
                 aria-label="WhatsApp"
               >
                 <Phone className="w-4 h-4" />
@@ -56,31 +77,36 @@ export default function Footer() {
 
           {/* Quick Links */}
           <div>
-            <h3 className="font-serif text-lg font-bold text-white mb-4">Bakery Menu</h3>
-            <ul className="space-y-2.5 text-sm text-[#D5C7BC]">
+            <h3 className="text-sm font-black uppercase tracking-wider text-white mb-4">
+              BAKERY MENU
+            </h3>
+            <ul className="space-y-2.5 text-xs font-bold text-[#A1A1AA]">
               <li>
-                <Link href="/catalogue?category=cakes" className="hover:text-white transition-colors">
+                <Link href="/catalogue?category=cakes" className="hover:text-[#E4007C] transition-colors">
                   Signature Cakes
                 </Link>
               </li>
               <li>
-                <Link href="/catalogue?category=pastries" className="hover:text-white transition-colors">
-                  French Pastries & Tarts
+                <Link href="/catalogue?category=pastries" className="hover:text-[#E4007C] transition-colors">
+                  Pastries &amp; Mawa Bakes
                 </Link>
               </li>
               <li>
-                <Link href="/catalogue?category=breads" className="hover:text-white transition-colors">
-                  Artisan Sourdough & Breads
+                <Link href="/catalogue?category=breads" className="hover:text-[#E4007C] transition-colors">
+                  Artisan Sourdough &amp; Puffs
                 </Link>
               </li>
               <li>
-                <Link href="/custom-cake" className="hover:text-[#D97706] text-[#F59E0B] font-medium transition-colors">
-                  ★ Custom Celebration Cakes
+                <Link href="/custom-cake" className="text-[#FFE600] hover:text-[#E4007C] transition-colors">
+                  ★ Custom Celebration Cake Lab
                 </Link>
               </li>
               <li>
-                <Link href="/catalogue?eggless=true" className="hover:text-white transition-colors">
-                  100% Eggless Treats
+                <Link href="/catalogue?eggless=true" className="hover:text-white transition-colors flex items-center gap-1.5">
+                  <span className="w-2.5 h-2.5 border border-[#15803D] flex items-center justify-center p-0.5 rounded-xs bg-white">
+                    <span className="w-1.5 h-1.5 rounded-full bg-[#15803D]" />
+                  </span>
+                  100% Pure Veg (Eggless)
                 </Link>
               </li>
             </ul>
@@ -88,43 +114,50 @@ export default function Footer() {
 
           {/* Store Hours */}
           <div>
-            <h3 className="font-serif text-lg font-bold text-white mb-4">Bake Hours</h3>
-            <div className="space-y-3 text-sm text-[#D5C7BC]">
+            <h3 className="text-sm font-black uppercase tracking-wider text-white mb-4">
+              BAKE HOURS (IST)
+            </h3>
+            <div className="space-y-3 text-xs text-[#A1A1AA] font-medium">
               <div className="flex items-start gap-2.5">
-                <Clock className="w-4 h-4 text-[#D97706] mt-0.5 shrink-0" />
+                <Clock className="w-4 h-4 text-[#FFE600] mt-0.5 shrink-0" />
                 <div>
-                  <p className="font-semibold text-white">Mon – Sun: 7:00 AM – 10:00 PM</p>
-                  <p className="text-xs text-[#A8988D]">Morning Hot Bakes: 7:30 AM</p>
-                  <p className="text-xs text-[#A8988D]">Evening Patisserie: 3:30 PM</p>
+                  <p className="font-black text-white">MON – SUN: 8:00 AM – 11:00 PM</p>
+                  <p className="text-[11px] text-[#A1A1AA]">Fresh Morning Bakes: 8:00 AM</p>
+                  <p className="text-[11px] text-[#A1A1AA]">Hot Puffs &amp; Pastries: 4:00 PM</p>
                 </div>
               </div>
-              <p className="text-xs italic text-[#A8988D] pt-2">
-                *Custom cake bookings require 24 to 48 hours notice for handcrafted detail.
+              <p className="text-[11px] text-[#71717A] pt-2">
+                FSSAI Lic. No: <strong className="text-white">11523005000421</strong>
+              </p>
+              <p className="text-[11px] text-[#71717A]">
+                💳 UPI, Credit/Debit Cards, Cash on Delivery accepted.
               </p>
             </div>
           </div>
 
           {/* Address & Contact */}
           <div>
-            <h3 className="font-serif text-lg font-bold text-white mb-4">Visit Our Bakery</h3>
-            <div className="space-y-3 text-sm text-[#D5C7BC]">
+            <h3 className="text-sm font-black uppercase tracking-wider text-white mb-4">
+              VISIT OUR LAB
+            </h3>
+            <div className="space-y-3 text-xs text-[#A1A1AA] font-medium">
               <div className="flex items-start gap-2.5">
-                <MapPin className="w-4 h-4 text-[#D97706] mt-0.5 shrink-0" />
+                <MapPin className="w-4 h-4 text-[#E4007C] mt-0.5 shrink-0" />
                 <span>
-                  42 Pastry Boulevard, Near Central Park,<br />
-                  Artisan District, PIN 400001
+                  Shop 4, Hill Road, Near Mehboob Studio,<br />
+                  Bandra West, Mumbai, MH - 400050
                 </span>
               </div>
               <div className="flex items-center gap-2.5">
-                <Phone className="w-4 h-4 text-[#D97706] shrink-0" />
+                <Phone className="w-4 h-4 text-[#00E5A3] shrink-0" />
                 <span>WhatsApp: +{BAKERY_WHATSAPP_NUMBER}</span>
               </div>
               <div className="pt-2">
                 <a
-                  href={getWhatsAppUrl('Hi! I would like to place an order.')}
+                  href={getWhatsAppUrl('Namaste! I would like to place an order with Sweet Delight Bakery.')}
                   target="_blank"
                   rel="noreferrer"
-                  className="btn-whatsapp !py-2 !px-4 text-xs w-full"
+                  className="btn-whatsapp !py-2 !px-4 text-xs w-full text-center"
                 >
                   <Phone className="w-3.5 h-3.5" />
                   Chat on WhatsApp
@@ -135,11 +168,17 @@ export default function Footer() {
         </div>
 
         {/* Bottom Bar */}
-        <div className="pt-8 flex flex-col md:flex-row items-center justify-between text-xs text-[#8A7970] gap-4">
-          <p>© {new Date().getFullYear()} Sweet Delight Artisan Bakery. Handcrafted with passion.</p>
-          <p className="flex items-center gap-1">
-            Made with <Heart className="w-3.5 h-3.5 text-[#BE123C] fill-current" /> for pastry lovers.
-          </p>
+        <div className="pt-8 flex flex-col md:flex-row items-center justify-between text-xs text-[#71717A] gap-4">
+          <p>© {new Date().getFullYear()} Sweet Delight Dessert Lab &amp; Bakery. All rights reserved.</p>
+          <div className="flex items-center gap-4">
+            <p className="flex items-center gap-1 font-semibold">
+              Baked with <Heart className="w-3.5 h-3.5 text-[#E4007C] fill-current" /> in Mumbai
+            </p>
+            <span>•</span>
+            <Link href="/admin" className="text-[#A1A1AA] hover:text-[#E4007C] transition-colors font-bold">
+              Kitchen Hub (Staff)
+            </Link>
+          </div>
         </div>
       </div>
     </footer>

@@ -7,150 +7,7 @@ import { supabase } from '../../lib/supabase';
 import ProductCard from '../../components/ProductCard';
 import type { Product, Category } from '../../types/supabase';
 
-// Fallback products in case Supabase network is initializing
-const FALLBACK_PRODUCTS: Product[] = [
-  {
-    id: '1',
-    category_id: '11111111-1111-1111-1111-111111111111',
-    name: 'Belgian Dark Chocolate Truffle Cake',
-    slug: 'belgian-chocolate-truffle-cake',
-    description: 'Rich 70% Belgian chocolate ganache layered with moist cocoa sponge and chocolate shavings.',
-    base_price: 28.0,
-    images: ['https://images.unsplash.com/photo-1578985545062-69928b1d9587?auto=format&fit=crop&w=800&q=80'],
-    is_eggless: true,
-    is_gluten_free: false,
-    is_vegan: false,
-    available_sizes: [
-      { label: '0.5 kg (Serves 4-6)', extra_price: 0 },
-      { label: '1.0 kg (Serves 8-12)', extra_price: 22 },
-      { label: '2.0 kg (Serves 16-20)', extra_price: 55 },
-    ],
-    is_available: true,
-    is_featured: true,
-    rating: 4.9,
-    created_at: null,
-  },
-  {
-    id: '2',
-    category_id: '11111111-1111-1111-1111-111111111111',
-    name: 'Classic Red Velvet & Cream Cheese Cake',
-    slug: 'classic-red-velvet-cake',
-    description: 'Velvety crimson sponge infused with Madagascar vanilla and layered with tangy Philadelphia cream cheese frosting.',
-    base_price: 32.0,
-    images: ['https://images.unsplash.com/photo-1586788680434-30d324b2d46f?auto=format&fit=crop&w=800&q=80'],
-    is_eggless: false,
-    is_gluten_free: false,
-    is_vegan: false,
-    available_sizes: [
-      { label: '0.5 kg (Serves 4-6)', extra_price: 0 },
-      { label: '1.0 kg (Serves 8-12)', extra_price: 24 },
-    ],
-    is_available: true,
-    is_featured: true,
-    rating: 4.8,
-    created_at: null,
-  },
-  {
-    id: '3',
-    category_id: '22222222-2222-2222-2222-222222222222',
-    name: 'Pure Butter French Croissant',
-    slug: 'pure-butter-french-croissant',
-    description: 'Flaky, golden, 27-layer laminated dough baked using high-fat cultured Normandy butter.',
-    base_price: 4.5,
-    images: ['https://images.unsplash.com/photo-1555507036-ab1f4038808a?auto=format&fit=crop&w=800&q=80'],
-    is_eggless: false,
-    is_gluten_free: false,
-    is_vegan: false,
-    available_sizes: [
-      { label: 'Single Piece', extra_price: 0 },
-      { label: 'Box of 4', extra_price: 12.5 },
-    ],
-    is_available: true,
-    is_featured: true,
-    rating: 4.9,
-    created_at: null,
-  },
-  {
-    id: '4',
-    category_id: '22222222-2222-2222-2222-222222222222',
-    name: 'Almond Frangipane Fruit Tart',
-    slug: 'almond-frangipane-fruit-tart',
-    description: 'Crisp sweet shortcrust pastry filled with golden almond cream and topped with fresh raspberries and blueberries.',
-    base_price: 6.5,
-    images: ['https://images.unsplash.com/photo-1519915028121-7d3463d20b13?auto=format&fit=crop&w=800&q=80'],
-    is_eggless: false,
-    is_gluten_free: false,
-    is_vegan: false,
-    available_sizes: [
-      { label: 'Single Tart', extra_price: 0 },
-      { label: 'Box of 2', extra_price: 6.0 },
-    ],
-    is_available: true,
-    is_featured: false,
-    rating: 4.8,
-    created_at: null,
-  },
-  {
-    id: '5',
-    category_id: '33333333-3333-3333-3333-333333333333',
-    name: 'San Francisco Style Country Sourdough',
-    slug: 'country-sourdough-loaf',
-    description: '36-hour slow cold fermentation loaf with a blistered crunchy crust and open, airy crumb.',
-    base_price: 7.0,
-    images: ['https://images.unsplash.com/photo-1509440159596-0249088772ff?auto=format&fit=crop&w=800&q=80'],
-    is_eggless: true,
-    is_gluten_free: false,
-    is_vegan: true,
-    available_sizes: [
-      { label: 'Whole Loaf (800g)', extra_price: 0 },
-      { label: 'Sliced Loaf', extra_price: 0.5 },
-    ],
-    is_available: true,
-    is_featured: true,
-    rating: 4.9,
-    created_at: null,
-  },
-  {
-    id: '6',
-    category_id: '44444444-4444-4444-4444-444444444444',
-    name: 'Parisian Macarons Gift Box',
-    slug: 'parisian-macarons-gift-box',
-    description: 'Naturally gluten-free almond meringue shells filled with chocolate ganache, pistachio, and raspberry coulis.',
-    base_price: 16.0,
-    images: ['https://images.unsplash.com/photo-1569864321288-292f70356191?auto=format&fit=crop&w=800&q=80'],
-    is_eggless: false,
-    is_gluten_free: true,
-    is_vegan: false,
-    available_sizes: [
-      { label: 'Box of 6', extra_price: 0 },
-      { label: 'Box of 12', extra_price: 14.0 },
-    ],
-    is_available: true,
-    is_featured: true,
-    rating: 4.9,
-    created_at: null,
-  },
-  {
-    id: '7',
-    category_id: '55555555-5555-5555-5555-555555555555',
-    name: 'Spinach, Feta & Sun-Dried Tomato Danish',
-    slug: 'spinach-feta-danish',
-    description: 'Buttery laminated puff pastry nest cradling seasoned creamed spinach, Greek feta cheese, and toasted pine nuts.',
-    base_price: 5.5,
-    images: ['https://images.unsplash.com/photo-1608198093002-ad4e005484ec?auto=format&fit=crop&w=800&q=80'],
-    is_eggless: true,
-    is_gluten_free: false,
-    is_vegan: false,
-    available_sizes: [
-      { label: 'Single Piece', extra_price: 0 },
-      { label: 'Box of 3', extra_price: 10.0 },
-    ],
-    is_available: true,
-    is_featured: false,
-    rating: 4.7,
-    created_at: null,
-  },
-];
+import { FALLBACK_PRODUCTS } from '../../lib/productsData';
 
 function CatalogueContent() {
   const searchParams = useSearchParams();
@@ -222,24 +79,24 @@ function CatalogueContent() {
   }, [products, categories, selectedCategory, filterEggless, filterVegan, filterGlutenFree, searchQuery, sortBy]);
 
   return (
-    <div className="py-10 bg-[#FDFBF7]">
+    <div className="py-10 bg-white">
       <div className="container-custom">
-        {/* Header */}
+        {/* Milk Bar Header */}
         <div className="text-center max-w-2xl mx-auto mb-10">
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#FEF3C7] text-[#B45309] text-xs font-bold uppercase tracking-wider mb-2">
-            <Sparkles className="w-3.5 h-3.5" />
-            Freshly Baked Every Morning
+          <div className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full bg-[#FFE600] text-[#111111] border border-[#111111] text-[10px] font-black uppercase tracking-wider mb-2 shadow-[2px_2px_0px_#111111]">
+            <Sparkles className="w-3.5 h-3.5 text-[#E4007C]" />
+            FRESHLY BAKED EVERY MORNING AT 5:00 AM
           </div>
-          <h1 className="font-serif text-3xl md:text-5xl font-extrabold text-[#231815] tracking-tight">
-            Artisan Product Catalogue
+          <h1 className="text-4xl md:text-5xl font-black uppercase tracking-tight text-[#111111]">
+            THE BAKERY CATALOGUE
           </h1>
-          <p className="text-sm md:text-base text-[#7E6C65] mt-2">
+          <p className="text-xs md:text-sm text-[#6B7280] font-medium mt-2 max-w-xl mx-auto">
             Explore our handcrafted celebration cakes, crisp viennoiserie, rustic slow-fermented breads, and savoury bakes.
           </p>
         </div>
 
-        {/* Search & Sorting Controls */}
-        <div className="bg-white p-4 md:p-6 rounded-3xl border border-[#E8DDD2] shadow-sm mb-8 space-y-4">
+        {/* Search, Filter & Sort Controls */}
+        <div className="bg-[#FFF0F6] p-4 md:p-6 rounded-2xl border-2 border-[#111111] shadow-[5px_5px_0px_#111111] mb-10 space-y-4">
           <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
             {/* Search Bar */}
             <div className="relative w-full md:w-96">
@@ -248,21 +105,21 @@ function CatalogueContent() {
                 placeholder="Search cakes, croissants, sourdough..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-10 pr-4 py-2.5 rounded-full bg-[#FAF4EB] border border-[#E8DDD2] text-sm focus:outline-none focus:border-[#8B4513]"
+                className="w-full pl-10 pr-4 py-2.5 rounded-full bg-white border-2 border-[#111111] text-xs font-bold text-[#111111] focus:outline-none focus:border-[#E4007C]"
               />
-              <Search className="w-4 h-4 text-[#7E6C65] absolute left-3.5 top-3.5" />
+              <Search className="w-4 h-4 text-[#111111] absolute left-3.5 top-3.5" />
             </div>
 
             {/* Sort Dropdown */}
             <div className="flex items-center gap-2 w-full md:w-auto justify-end">
-              <SlidersHorizontal className="w-4 h-4 text-[#7E6C65]" />
-              <label className="text-xs font-bold text-[#7E6C65]">Sort by:</label>
+              <SlidersHorizontal className="w-4 h-4 text-[#111111]" />
+              <label className="text-[11px] font-black uppercase tracking-wider text-[#111111]">Sort by:</label>
               <select
                 value={sortBy}
                 onChange={(e) => setSortBy(e.target.value as any)}
-                className="text-xs font-semibold px-3 py-2 rounded-xl bg-[#FAF4EB] border border-[#E8DDD2] text-[#231815] focus:outline-none"
+                className="text-xs font-black uppercase tracking-wider px-3.5 py-2 rounded-xl bg-white border-2 border-[#111111] text-[#111111] focus:outline-none"
               >
-                <option value="featured">Featured & Bestsellers</option>
+                <option value="featured">Featured &amp; Bestsellers</option>
                 <option value="price-asc">Price: Low to High</option>
                 <option value="price-desc">Price: High to Low</option>
               </select>
@@ -270,13 +127,13 @@ function CatalogueContent() {
           </div>
 
           {/* Category Filter Chips */}
-          <div className="flex items-center gap-2 overflow-x-auto pb-1 pt-2 border-t border-[#F2EBE3]">
+          <div className="flex items-center gap-2 overflow-x-auto pb-1 pt-2 border-t border-[#111111]/10">
             <button
               onClick={() => setSelectedCategory('all')}
-              className={`text-xs font-bold px-4 py-2 rounded-full whitespace-nowrap transition-all ${
+              className={`text-xs font-black uppercase tracking-wider px-4 py-2 rounded-full whitespace-nowrap transition-all border-2 ${
                 selectedCategory === 'all'
-                  ? 'bg-[#8B4513] text-white shadow-sm'
-                  : 'bg-[#FAF4EB] text-[#42312C] hover:bg-[#F4E8D7]'
+                  ? 'bg-[#E4007C] text-white border-[#E4007C] shadow-[2px_2px_0px_#111111]'
+                  : 'bg-white text-[#111111] border-[#111111] hover:bg-[#FFE600]'
               }`}
             >
               All Items ({products.length})
@@ -285,10 +142,10 @@ function CatalogueContent() {
               <button
                 key={cat.id}
                 onClick={() => setSelectedCategory(cat.slug)}
-                className={`text-xs font-bold px-4 py-2 rounded-full whitespace-nowrap transition-all ${
+                className={`text-xs font-black uppercase tracking-wider px-4 py-2 rounded-full whitespace-nowrap transition-all border-2 ${
                   selectedCategory === cat.slug
-                    ? 'bg-[#8B4513] text-white shadow-sm'
-                    : 'bg-[#FAF4EB] text-[#42312C] hover:bg-[#F4E8D7]'
+                    ? 'bg-[#E4007C] text-white border-[#E4007C] shadow-[2px_2px_0px_#111111]'
+                    : 'bg-white text-[#111111] border-[#111111] hover:bg-[#FFE600]'
                 }`}
               >
                 {cat.name}
@@ -297,16 +154,16 @@ function CatalogueContent() {
           </div>
 
           {/* Dietary Toggles */}
-          <div className="flex flex-wrap items-center gap-2 pt-2">
-            <span className="text-[11px] font-bold text-[#7E6C65] uppercase tracking-wider mr-1">
+          <div className="flex flex-wrap items-center gap-2 pt-1">
+            <span className="text-[10px] font-black text-[#111111] uppercase tracking-wider mr-1">
               Dietary Preference:
             </span>
             <button
               onClick={() => setFilterEggless(!filterEggless)}
-              className={`text-xs px-3 py-1.5 rounded-full font-bold flex items-center gap-1.5 transition-all ${
+              className={`text-xs px-3.5 py-1.5 rounded-full font-black uppercase tracking-wider flex items-center gap-1.5 transition-all border-2 ${
                 filterEggless
-                  ? 'bg-[#DCFCE7] text-[#15803D] border border-[#86EFAC]'
-                  : 'bg-[#FAF4EB] text-[#7E6C65] hover:bg-[#F4E8D7]'
+                  ? 'bg-[#DCFCE7] text-[#15803D] border-[#15803D] shadow-sm'
+                  : 'bg-white text-[#111111] border-[#111111]/30 hover:border-[#111111]'
               }`}
             >
               {filterEggless && <Check className="w-3.5 h-3.5" />}
@@ -315,10 +172,10 @@ function CatalogueContent() {
 
             <button
               onClick={() => setFilterVegan(!filterVegan)}
-              className={`text-xs px-3 py-1.5 rounded-full font-bold flex items-center gap-1.5 transition-all ${
+              className={`text-xs px-3.5 py-1.5 rounded-full font-black uppercase tracking-wider flex items-center gap-1.5 transition-all border-2 ${
                 filterVegan
-                  ? 'bg-[#D1FAE5] text-[#047857] border border-[#6EE7B7]'
-                  : 'bg-[#FAF4EB] text-[#7E6C65] hover:bg-[#F4E8D7]'
+                  ? 'bg-[#D1FAE5] text-[#065F46] border-[#065F46] shadow-sm'
+                  : 'bg-white text-[#111111] border-[#111111]/30 hover:border-[#111111]'
               }`}
             >
               {filterVegan && <Check className="w-3.5 h-3.5" />}
@@ -327,10 +184,10 @@ function CatalogueContent() {
 
             <button
               onClick={() => setFilterGlutenFree(!filterGlutenFree)}
-              className={`text-xs px-3 py-1.5 rounded-full font-bold flex items-center gap-1.5 transition-all ${
+              className={`text-xs px-3.5 py-1.5 rounded-full font-black uppercase tracking-wider flex items-center gap-1.5 transition-all border-2 ${
                 filterGlutenFree
-                  ? 'bg-[#FEF3C7] text-[#B45309] border border-[#FDE68A]'
-                  : 'bg-[#FAF4EB] text-[#7E6C65] hover:bg-[#F4E8D7]'
+                  ? 'bg-[#FFE600] text-[#111111] border-[#111111] shadow-sm'
+                  : 'bg-white text-[#111111] border-[#111111]/30 hover:border-[#111111]'
               }`}
             >
               {filterGlutenFree && <Check className="w-3.5 h-3.5" />}
@@ -341,10 +198,10 @@ function CatalogueContent() {
 
         {/* Product Grid */}
         {filteredProducts.length === 0 ? (
-          <div className="bg-white rounded-3xl p-12 text-center border border-[#E8DDD2] max-w-md mx-auto">
-            <Filter className="w-10 h-10 text-[#A8988D] mx-auto mb-3" />
-            <h3 className="font-serif text-lg font-bold text-[#231815]">No items found</h3>
-            <p className="text-xs text-[#7E6C65] mt-1">
+          <div className="bg-[#FFF0F6] rounded-2xl p-12 text-center border-2 border-[#111111] max-w-md mx-auto shadow-[4px_4px_0px_#111111]">
+            <Filter className="w-10 h-10 text-[#E4007C] mx-auto mb-3" />
+            <h3 className="text-lg font-black uppercase tracking-tight text-[#111111]">No items found</h3>
+            <p className="text-xs text-[#6B7280] font-medium mt-1">
               Try adjusting your dietary filters or search query to see other bakes.
             </p>
             <button
@@ -376,7 +233,7 @@ export default function CataloguePage() {
   return (
     <Suspense
       fallback={
-        <div className="py-24 text-center font-serif text-lg font-bold text-[#8B4513]">
+        <div className="py-24 text-center text-lg font-black uppercase tracking-tight text-[#E4007C]">
           Loading fresh bakery catalogue...
         </div>
       }
@@ -385,4 +242,3 @@ export default function CataloguePage() {
     </Suspense>
   );
 }
-

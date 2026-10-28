@@ -41,28 +41,28 @@ export default function CustomCakePage() {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
 
-  // Styles & Flavors Options
+  // Styles & Flavors Options (Indian Bakery Specials)
   const cakeStyles = [
-    { id: 'Buttercream Floral', name: 'Buttercream Floral & Textured', desc: 'Silk Swiss meringue buttercream piped with delicate botanical florals.', basePrice: 45 },
-    { id: 'Semi-Naked Rustic', name: 'Semi-Naked Rustic Berry', desc: 'Lightly scraped sponge with exposed crumb, fresh berries & rosemary sprigs.', basePrice: 40 },
-    { id: 'Sculpted Fondant', name: 'Sculpted Fondant & Theme', desc: 'Hand-sculpted bespoke 3D toppers, figurines, or crisp geometric fondant.', basePrice: 55 },
-    { id: 'Vintage Lambeth', name: 'Vintage Lambeth Heart', desc: 'Classic ornate Victorian over-piping, ruffled borders & satin ribbon aesthetics.', basePrice: 50 },
+    { id: 'Buttercream Floral', name: 'Buttercream Floral & Textured (Eggless)', desc: 'Silky smooth whipped buttercream with piped roses and edible golden pearls.', basePrice: 850 },
+    { id: 'Semi-Naked Rustic', name: 'Semi-Naked Saffron & Dry Fruit', desc: 'Exposed crumb sponge layered with saffron rabdi, slivered pistachios & rose petals.', basePrice: 750 },
+    { id: 'Sculpted Fondant', name: 'Sculpted 3D Theme & Fondant', desc: 'Custom cartoon, half-birthday, engagement ring box, or traditional peacock theme.', basePrice: 1200 },
+    { id: 'Vintage Lambeth', name: 'Vintage Lambeth Heart (Eggless)', desc: 'Victorian ornate frills, heart-shaped silhouette & celebratory satin ribbon.', basePrice: 950 },
   ];
 
   const spongeOptions = [
-    'Belgian Chocolate Truffle',
-    'Madagascar Vanilla Bean',
-    'Velvety Red Velvet',
-    'Zesty Lemon & Poppyseed',
-    'Almond & Raspberry',
+    'Belgian Dark Chocolate Truffle (100% Eggless)',
+    'Royal Rasmalai Infused Sponge (100% Eggless)',
+    'Kesar Pista Saffron Sponge (100% Eggless)',
+    'Classic Red Velvet Sponge',
+    'Gulab Jamun Cardamom Chiffon (100% Eggless)',
   ];
 
   const fillingOptions = [
-    'Dark Chocolate Ganache',
+    'Dark Belgian Chocolate Ganache',
+    'Saffron Rabdi & Rasmalai Compote',
+    'Pistachio Praline Crunch',
     'Whipped Vanilla Buttercream',
-    'Cream Cheese Frosting',
-    'Salted Caramel & Roasted Pecans',
-    'Fresh Berry Compote',
+    'Philadelphia Cream Cheese',
   ];
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -163,12 +163,12 @@ export default function CustomCakePage() {
       setWhatsappLink(waUrl);
       setSubmittedRequestNumber(requestNumber);
 
-      // Trigger Confetti Celebration
+      // Trigger Confetti Celebration (Milk Bar Hot Pink, Yellow & Mint)
       confetti({
-        particleCount: 80,
-        spread: 70,
+        particleCount: 90,
+        spread: 80,
         origin: { y: 0.6 },
-        colors: ['#8B4513', '#D97706', '#F59E0B', '#DCFCE7'],
+        colors: ['#E4007C', '#FFE600', '#00E5A3', '#111111'],
       });
     } catch (err) {
       console.error(err);
@@ -179,42 +179,42 @@ export default function CustomCakePage() {
   };
 
   return (
-    <div className="py-10 bg-[#FDFBF7]">
+    <div className="py-12 bg-white">
       <div className="container-custom max-w-4xl">
-        {/* Header */}
+        {/* Milk Bar Style Header */}
         <div className="text-center mb-10">
-          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[#FEF3C7] text-[#B45309] text-xs font-bold tracking-wide uppercase mb-3">
-            <Sparkles className="w-3.5 h-3.5" />
-            Custom Cake Studio
+          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[#FFE600] text-[#111111] border border-[#111111] text-[10px] font-black uppercase tracking-wider mb-3 shadow-[2px_2px_0px_#111111]">
+            <Sparkles className="w-3.5 h-3.5 text-[#E4007C]" />
+            CUSTOM CAKE LAB &amp; BESPOKE DESSERT STUDIO
           </div>
-          <h1 className="font-serif text-3xl md:text-5xl font-extrabold text-[#231815] tracking-tight">
-            Design Your Dream Cake
+          <h1 className="text-4xl md:text-5xl font-black uppercase tracking-tight text-[#111111]">
+            DESIGN YOUR DREAM CAKE
           </h1>
-          <p className="text-sm md:text-base text-[#7E6C65] mt-3 max-w-xl mx-auto">
-            From intimate birthday celebrations to showstopper wedding tiers, our master pastry chefs bring your creative vision to life.
+          <p className="text-xs md:text-sm text-[#6B7280] font-medium mt-3 max-w-xl mx-auto">
+            From intimate birthday celebrations to showstopper multi-tier party centerpieces, our pastry chefs bring your sweetest vision to life.
           </p>
         </div>
 
         {/* Success Screen */}
         {submittedRequestNumber ? (
-          <div className="bg-white rounded-3xl p-8 md:p-12 border border-[#E8DDD2] text-center shadow-lg">
-            <div className="w-16 h-16 rounded-full bg-[#DCFCE7] text-[#15803D] flex items-center justify-center mx-auto mb-4">
+          <div className="bg-[#FFF0F6] rounded-2xl p-8 md:p-12 border-2 border-[#111111] text-center shadow-[6px_6px_0px_#111111]">
+            <div className="w-16 h-16 rounded-full bg-[#DCFCE7] border-2 border-[#15803D] text-[#15803D] flex items-center justify-center mx-auto mb-4">
               <CheckCircle2 className="w-8 h-8" />
             </div>
-            <h2 className="font-serif text-2xl md:text-3xl font-bold text-[#231815]">
-              Inquiry Received! (#{submittedRequestNumber})
+            <h2 className="text-2xl md:text-3xl font-black uppercase tracking-tight text-[#111111]">
+              INQUIRY RECEIVED! (#{submittedRequestNumber})
             </h2>
-            <p className="text-sm text-[#7E6C65] mt-2 max-w-md mx-auto">
+            <p className="text-xs md:text-sm text-[#6B7280] font-semibold mt-2 max-w-md mx-auto">
               We have recorded your custom cake preferences for{' '}
-              <strong className="text-[#231815]">{eventDate}</strong>.
+              <strong className="text-[#111111]">{eventDate}</strong>.
             </p>
 
-            <div className="mt-8 p-5 rounded-2xl bg-[#FAF4EB] border border-[#E8DDD2] text-left max-w-md mx-auto text-xs space-y-2">
+            <div className="mt-8 p-5 rounded-xl bg-white border-2 border-[#111111] text-left max-w-md mx-auto text-xs space-y-2 shadow-[3px_3px_0px_#111111]">
               <p><strong>Style:</strong> {cakeType}</p>
-              <p><strong>Flavor:</strong> {spongeFlavor} & {fillingFlavor}</p>
-              <p><strong>Tiers & Weight:</strong> {tierCount} Tier ({estimatedWeightKg} kg)</p>
+              <p><strong>Flavor:</strong> {spongeFlavor} &amp; {fillingFlavor}</p>
+              <p><strong>Tiers &amp; Weight:</strong> {tierCount} Tier ({estimatedWeightKg} kg)</p>
               {messageOnCake && <p><strong>Piped Text:</strong> &ldquo;{messageOnCake}&rdquo;</p>}
-              <p><strong>Estimated Range:</strong> ~${Math.round(estimatedPrice)} (Subject to design complexity)</p>
+              <p className="text-[#E4007C] font-bold"><strong>Estimated Range:</strong> ~₹{Math.round(estimatedPrice)} (Finalized on WhatsApp based on design)</p>
             </div>
 
             <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-3">
@@ -235,42 +235,42 @@ export default function CustomCakePage() {
             </div>
           </div>
         ) : (
-          /* Multi-Step Studio */
-          <div className="bg-white rounded-3xl border border-[#E8DDD2] shadow-sm overflow-hidden">
+          /* Multi-Step Studio with Milk Bar Aesthetics */
+          <div className="bg-white rounded-2xl border-2 border-[#111111] shadow-[6px_6px_0px_#111111] overflow-hidden">
             {/* Step Indicators */}
-            <div className="grid grid-cols-3 border-b border-[#E8DDD2] bg-[#FAF4EB] text-center text-xs font-bold">
+            <div className="grid grid-cols-3 border-b-2 border-[#111111] bg-[#FAFAFA] text-center text-xs font-black uppercase tracking-wider">
               <button
                 type="button"
                 onClick={() => setCurrentStep(1)}
-                className={`py-4 px-2 transition-colors ${
+                className={`py-4 px-2 transition-all ${
                   currentStep === 1
-                    ? 'bg-white text-[#8B4513] border-b-2 border-[#8B4513]'
-                    : 'text-[#7E6C65]'
+                    ? 'bg-[#E4007C] text-white'
+                    : 'text-[#111111] hover:bg-[#FFF0F6]'
                 }`}
               >
-                1. Style & Flavors
+                1. Style &amp; Flavors
               </button>
               <button
                 type="button"
                 onClick={() => setCurrentStep(2)}
-                className={`py-4 px-2 transition-colors ${
+                className={`py-4 px-2 transition-all border-x-2 border-[#111111] ${
                   currentStep === 2
-                    ? 'bg-white text-[#8B4513] border-b-2 border-[#8B4513]'
-                    : 'text-[#7E6C65]'
+                    ? 'bg-[#E4007C] text-white'
+                    : 'text-[#111111] hover:bg-[#FFF0F6]'
                 }`}
               >
-                2. Tiers & Design
+                2. Tiers &amp; Design
               </button>
               <button
                 type="button"
                 onClick={() => setCurrentStep(3)}
-                className={`py-4 px-2 transition-colors ${
+                className={`py-4 px-2 transition-all ${
                   currentStep === 3
-                    ? 'bg-white text-[#8B4513] border-b-2 border-[#8B4513]'
-                    : 'text-[#7E6C65]'
+                    ? 'bg-[#E4007C] text-white'
+                    : 'text-[#111111] hover:bg-[#FFF0F6]'
                 }`}
               >
-                3. Date & Details
+                3. Date &amp; Details
               </button>
             </div>
 
@@ -279,10 +279,10 @@ export default function CustomCakePage() {
               {currentStep === 1 && (
                 <div className="space-y-6">
                   <div>
-                    <h3 className="font-serif text-xl font-bold text-[#231815] mb-1">
+                    <h3 className="text-xl font-black uppercase tracking-tight text-[#111111] mb-1">
                       Choose Your Cake Style
                     </h3>
-                    <p className="text-xs text-[#7E6C65] mb-4">
+                    <p className="text-xs text-[#6B7280] font-medium mb-4">
                       Select the artistic look that matches your event aesthetic.
                     </p>
 
@@ -291,17 +291,19 @@ export default function CustomCakePage() {
                         <div
                           key={style.id}
                           onClick={() => setCakeType(style.id)}
-                          className={`p-4 rounded-2xl border cursor-pointer transition-all ${
+                          className={`p-4 rounded-xl border-2 cursor-pointer transition-all ${
                             cakeType === style.id
-                              ? 'border-[#8B4513] bg-[#F7EFE8] shadow-sm ring-1 ring-[#8B4513]'
-                              : 'border-[#E8DDD2] hover:border-[#8B4513]/50 bg-[#FDFBF7]'
+                              ? 'border-[#E4007C] bg-[#FFF0F6] shadow-[3px_3px_0px_#E4007C]'
+                              : 'border-[#111111] hover:border-[#E4007C] bg-white'
                           }`}
                         >
                           <div className="flex items-center justify-between">
-                            <span className="font-bold text-sm text-[#231815]">{style.name}</span>
-                            <span className="text-xs font-semibold text-[#8B4513]">From ${style.basePrice}</span>
+                            <span className="font-black text-xs uppercase text-[#111111]">{style.name}</span>
+                            <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-full bg-[#FFE600] text-[#111111] border border-[#111111]">
+                              From ₹{style.basePrice}
+                            </span>
                           </div>
-                          <p className="text-xs text-[#7E6C65] mt-1 leading-relaxed">
+                          <p className="text-xs text-[#6B7280] font-medium mt-1.5 leading-relaxed">
                             {style.desc}
                           </p>
                         </div>
@@ -310,15 +312,15 @@ export default function CustomCakePage() {
                   </div>
 
                   {/* Sponge & Filling Flavors */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-4 border-t border-[#F2EBE3]">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-4 border-t border-[#111111]/10">
                     <div>
-                      <label className="block text-xs font-bold text-[#231815] uppercase tracking-wider mb-2">
+                      <label className="block text-[11px] font-black uppercase tracking-wider text-[#111111] mb-2">
                         Sponge Flavour
                       </label>
                       <select
                         value={spongeFlavor}
                         onChange={(e) => setSpongeFlavor(e.target.value)}
-                        className="w-full text-sm p-3 rounded-xl bg-[#FAF4EB] border border-[#E8DDD2] text-[#231815] focus:outline-none focus:border-[#8B4513]"
+                        className="w-full text-xs font-bold p-3 rounded-xl bg-[#F4F4F4] border-2 border-[#111111] text-[#111111] focus:outline-none focus:border-[#E4007C]"
                       >
                         {spongeOptions.map((flavor) => (
                           <option key={flavor} value={flavor}>
@@ -329,13 +331,13 @@ export default function CustomCakePage() {
                     </div>
 
                     <div>
-                      <label className="block text-xs font-bold text-[#231815] uppercase tracking-wider mb-2">
-                        Filling & Frosting
+                      <label className="block text-[11px] font-black uppercase tracking-wider text-[#111111] mb-2">
+                        Filling &amp; Frosting
                       </label>
                       <select
                         value={fillingFlavor}
                         onChange={(e) => setFillingFlavor(e.target.value)}
-                        className="w-full text-sm p-3 rounded-xl bg-[#FAF4EB] border border-[#E8DDD2] text-[#231815] focus:outline-none focus:border-[#8B4513]"
+                        className="w-full text-xs font-bold p-3 rounded-xl bg-[#F4F4F4] border-2 border-[#111111] text-[#111111] focus:outline-none focus:border-[#E4007C]"
                       >
                         {fillingOptions.map((filling) => (
                           <option key={filling} value={filling}>
@@ -352,7 +354,7 @@ export default function CustomCakePage() {
                       onClick={() => setCurrentStep(2)}
                       className="btn-primary"
                     >
-                      Next: Tiers & Visualizer
+                      Next: Tiers &amp; Visualizer
                       <ArrowRight className="w-4 h-4" />
                     </button>
                   </div>
@@ -363,10 +365,10 @@ export default function CustomCakePage() {
               {currentStep === 2 && (
                 <div className="space-y-6">
                   <div>
-                    <h3 className="font-serif text-xl font-bold text-[#231815] mb-1">
-                      Cake Size & Tiers
+                    <h3 className="text-xl font-black uppercase tracking-tight text-[#111111] mb-1">
+                      Cake Size &amp; Tiers
                     </h3>
-                    <p className="text-xs text-[#7E6C65] mb-4">
+                    <p className="text-xs text-[#6B7280] font-medium mb-4">
                       Choose the number of tiers based on your anticipated guest count.
                     </p>
 
@@ -380,27 +382,27 @@ export default function CustomCakePage() {
                           key={t.tiers}
                           type="button"
                           onClick={() => handleTierChange(t.tiers as 1 | 2 | 3)}
-                          className={`p-4 rounded-2xl border text-center transition-all ${
+                          className={`p-4 rounded-xl border-2 text-center transition-all ${
                             tierCount === t.tiers
-                              ? 'border-[#8B4513] bg-[#F7EFE8] ring-1 ring-[#8B4513]'
-                              : 'border-[#E8DDD2] bg-[#FDFBF7]'
+                              ? 'border-[#E4007C] bg-[#FFF0F6] shadow-[3px_3px_0px_#E4007C]'
+                              : 'border-[#111111] bg-white hover:bg-[#F4F4F4]'
                           }`}
                         >
-                          <Cake className="w-6 h-6 mx-auto mb-1 text-[#8B4513]" />
-                          <p className="font-bold text-sm text-[#231815]">{t.label}</p>
-                          <p className="text-[11px] text-[#B45309] font-semibold mt-0.5">{t.serves}</p>
-                          <p className="text-[10px] text-[#7E6C65]">Approx. {t.weight} kg</p>
+                          <Cake className="w-6 h-6 mx-auto mb-1 text-[#E4007C]" />
+                          <p className="font-black text-xs uppercase text-[#111111]">{t.label}</p>
+                          <p className="text-[10px] text-[#E4007C] font-black uppercase mt-0.5">{t.serves}</p>
+                          <p className="text-[10px] text-[#6B7280] font-bold">Approx. {t.weight} kg</p>
                         </button>
                       ))}
                     </div>
                   </div>
 
                   {/* Reference Image Upload */}
-                  <div className="pt-4 border-t border-[#F2EBE3]">
-                    <label className="block text-xs font-bold text-[#231815] uppercase tracking-wider mb-2">
+                  <div className="pt-4 border-t border-[#111111]/10">
+                    <label className="block text-[11px] font-black uppercase tracking-wider text-[#111111] mb-2">
                       Upload Reference Design or Photo (Optional)
                     </label>
-                    <div className="border-2 border-dashed border-[#E8DDD2] hover:border-[#8B4513] rounded-2xl p-6 text-center bg-[#FDFBF7] cursor-pointer transition-colors relative">
+                    <div className="border-2 border-dashed border-[#111111] hover:border-[#E4007C] rounded-2xl p-6 text-center bg-[#FFF0F6]/40 cursor-pointer transition-colors relative">
                       <input
                         type="file"
                         accept="image/*"
@@ -409,7 +411,7 @@ export default function CustomCakePage() {
                       />
                       {previewUrl ? (
                         <div className="flex flex-col items-center">
-                          <div className="w-24 h-24 relative rounded-xl overflow-hidden mb-2 border border-[#E8DDD2]">
+                          <div className="w-24 h-24 relative rounded-xl overflow-hidden mb-2 border-2 border-[#111111]">
                             <Image
                               src={previewUrl}
                               alt="Cake reference preview"
@@ -417,26 +419,26 @@ export default function CustomCakePage() {
                               className="object-cover"
                             />
                           </div>
-                          <p className="text-xs font-semibold text-[#15803D]">
+                          <p className="text-xs font-black uppercase text-[#15803D]">
                             Photo selected! Click to replace.
                           </p>
                         </div>
                       ) : (
                         <div className="flex flex-col items-center">
-                          <Upload className="w-8 h-8 text-[#A8988D] mb-2" />
-                          <p className="text-xs font-semibold text-[#231815]">
+                          <Upload className="w-8 h-8 text-[#E4007C] mb-2" />
+                          <p className="text-xs font-black uppercase text-[#111111]">
                             Click or drag cake reference image here
                           </p>
-                          <p className="text-[10px] text-[#A8988D] mt-1">PNG, JPG, WEBP up to 8MB</p>
+                          <p className="text-[10px] text-[#6B7280] font-bold mt-1">PNG, JPG, WEBP up to 8MB</p>
                         </div>
                       )}
                     </div>
-                    {uploadError && <p className="text-xs text-[#BE123C] mt-1">{uploadError}</p>}
+                    {uploadError && <p className="text-xs text-[#E4007C] font-bold mt-1">{uploadError}</p>}
                   </div>
 
                   {/* Inscription & Live Board Preview */}
-                  <div className="pt-4 border-t border-[#F2EBE3]">
-                    <label className="block text-xs font-bold text-[#231815] uppercase tracking-wider mb-2">
+                  <div className="pt-4 border-t border-[#111111]/10">
+                    <label className="block text-[11px] font-black uppercase tracking-wider text-[#111111] mb-2">
                       Cake Board Inscription Message
                     </label>
                     <input
@@ -445,11 +447,11 @@ export default function CustomCakePage() {
                       placeholder="e.g. Happy 30th Birthday Sophia! 🌸"
                       value={messageOnCake}
                       onChange={(e) => setMessageOnCake(e.target.value)}
-                      className="w-full text-sm p-3 rounded-xl bg-[#FAF4EB] border border-[#E8DDD2] focus:outline-none focus:border-[#8B4513]"
+                      className="w-full text-xs font-bold p-3 rounded-xl bg-[#F4F4F4] border-2 border-[#111111] focus:outline-none focus:border-[#E4007C]"
                     />
 
                     {messageOnCake && (
-                      <div className="mt-3 p-3 rounded-xl bg-[#231815] text-[#FAF4EB] text-center font-serif italic text-sm tracking-wide shadow-inner">
+                      <div className="mt-3 p-3 rounded-xl bg-[#111111] text-[#FFE600] text-center font-black uppercase tracking-wider text-xs border-2 border-[#E4007C] shadow-[3px_3px_0px_#E4007C]">
                         &ldquo;{messageOnCake}&rdquo;
                       </div>
                     )}
@@ -468,7 +470,7 @@ export default function CustomCakePage() {
                       onClick={() => setCurrentStep(3)}
                       className="btn-primary"
                     >
-                      Next: Schedule & Contact
+                      Next: Schedule &amp; Contact
                       <ArrowRight className="w-4 h-4" />
                     </button>
                   </div>
@@ -479,17 +481,17 @@ export default function CustomCakePage() {
               {currentStep === 3 && (
                 <div className="space-y-6">
                   <div>
-                    <h3 className="font-serif text-xl font-bold text-[#231815] mb-1">
-                      Event Schedule & Delivery
+                    <h3 className="text-xl font-black uppercase tracking-tight text-[#111111] mb-1">
+                      Event Schedule &amp; Delivery
                     </h3>
-                    <div className="flex items-center gap-1.5 text-xs text-[#B45309] bg-[#FEF3C7] p-2.5 rounded-xl mb-4">
-                      <AlertCircle className="w-4 h-4 shrink-0" />
+                    <div className="flex items-center gap-2 text-xs font-black uppercase text-[#111111] bg-[#FFE600] border-2 border-[#111111] p-3 rounded-xl mb-4 shadow-[2px_2px_0px_#111111]">
+                      <AlertCircle className="w-4 h-4 shrink-0 text-[#E4007C]" />
                       <span>Custom designs require a minimum of 48 hours for delicate handcrafted details.</span>
                     </div>
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div>
-                        <label className="block text-xs font-bold text-[#231815] uppercase tracking-wider mb-2">
+                        <label className="block text-[11px] font-black uppercase tracking-wider text-[#111111] mb-2">
                           Event Date
                         </label>
                         <div className="relative">
@@ -498,41 +500,41 @@ export default function CustomCakePage() {
                             min={minDateString}
                             value={eventDate}
                             onChange={(e) => setEventDate(e.target.value)}
-                            className="w-full text-sm p-3 pl-10 rounded-xl bg-[#FAF4EB] border border-[#E8DDD2] focus:outline-none focus:border-[#8B4513]"
+                            className="w-full text-xs font-bold p-3 pl-10 rounded-xl bg-[#F4F4F4] border-2 border-[#111111] focus:outline-none focus:border-[#E4007C]"
                             required
                           />
-                          <Calendar className="w-4 h-4 text-[#7E6C65] absolute left-3 top-3.5 pointer-events-none" />
+                          <Calendar className="w-4 h-4 text-[#111111] absolute left-3 top-3.5 pointer-events-none" />
                         </div>
                       </div>
 
                       <div>
-                        <label className="block text-xs font-bold text-[#231815] uppercase tracking-wider mb-2">
+                        <label className="block text-[11px] font-black uppercase tracking-wider text-[#111111] mb-2">
                           Preferred Time Window
                         </label>
                         <div className="relative">
                           <select
                             value={deliverySlot}
                             onChange={(e) => setDeliverySlot(e.target.value)}
-                            className="w-full text-sm p-3 pl-10 rounded-xl bg-[#FAF4EB] border border-[#E8DDD2] focus:outline-none focus:border-[#8B4513]"
+                            className="w-full text-xs font-bold p-3 pl-10 rounded-xl bg-[#F4F4F4] border-2 border-[#111111] focus:outline-none focus:border-[#E4007C]"
                           >
                             <option value="10:00 - 13:00 (Morning)">10:00 AM - 1:00 PM (Morning)</option>
                             <option value="14:00 - 18:00 (Evening)">2:00 PM - 6:00 PM (Evening)</option>
                             <option value="18:00 - 21:00 (Night Event)">6:00 PM - 9:00 PM (Night Event)</option>
                           </select>
-                          <Clock className="w-4 h-4 text-[#7E6C65] absolute left-3 top-3.5 pointer-events-none" />
+                          <Clock className="w-4 h-4 text-[#111111] absolute left-3 top-3.5 pointer-events-none" />
                         </div>
                       </div>
                     </div>
                   </div>
 
                   {/* Customer Information */}
-                  <div className="pt-4 border-t border-[#F2EBE3]">
-                    <h3 className="font-serif text-lg font-bold text-[#231815] mb-3">
+                  <div className="pt-4 border-t border-[#111111]/10">
+                    <h3 className="text-base font-black uppercase tracking-tight text-[#111111] mb-3">
                       Your Contact Details
                     </h3>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div>
-                        <label className="block text-xs font-bold text-[#231815] uppercase tracking-wider mb-1.5">
+                        <label className="block text-[11px] font-black uppercase tracking-wider text-[#111111] mb-1.5">
                           Full Name *
                         </label>
                         <input
@@ -541,27 +543,27 @@ export default function CustomCakePage() {
                           placeholder="Sarah Jenkins"
                           value={customerName}
                           onChange={(e) => setCustomerName(e.target.value)}
-                          className="w-full text-sm p-3 rounded-xl bg-[#FAF4EB] border border-[#E8DDD2] focus:outline-none focus:border-[#8B4513]"
+                          className="w-full text-xs font-bold p-3 rounded-xl bg-[#F4F4F4] border-2 border-[#111111] focus:outline-none focus:border-[#E4007C]"
                         />
                       </div>
 
                       <div>
-                        <label className="block text-xs font-bold text-[#231815] uppercase tracking-wider mb-1.5">
+                        <label className="block text-[11px] font-black uppercase tracking-wider text-[#111111] mb-1.5">
                           WhatsApp Phone Number *
                         </label>
                         <input
                           type="tel"
                           required
-                          placeholder="+1 555 123 4567"
+                          placeholder="+91 98765 43210"
                           value={customerPhone}
                           onChange={(e) => setCustomerPhone(e.target.value)}
-                          className="w-full text-sm p-3 rounded-xl bg-[#FAF4EB] border border-[#E8DDD2] focus:outline-none focus:border-[#8B4513]"
+                          className="w-full text-xs font-bold p-3 rounded-xl bg-[#F4F4F4] border-2 border-[#111111] focus:outline-none focus:border-[#E4007C]"
                         />
                       </div>
                     </div>
 
                     <div className="mt-3">
-                      <label className="block text-xs font-bold text-[#231815] uppercase tracking-wider mb-1.5">
+                      <label className="block text-[11px] font-black uppercase tracking-wider text-[#111111] mb-1.5">
                         Special Requests or Dietary Allergies
                       </label>
                       <textarea
@@ -569,26 +571,26 @@ export default function CustomCakePage() {
                         placeholder="e.g. 100% Nut-free, pastel pink roses, include gold foil accents..."
                         value={specialInstructions}
                         onChange={(e) => setSpecialInstructions(e.target.value)}
-                        className="w-full text-sm p-3 rounded-xl bg-[#FAF4EB] border border-[#E8DDD2] focus:outline-none focus:border-[#8B4513]"
+                        className="w-full text-xs font-medium p-3 rounded-xl bg-[#F4F4F4] border-2 border-[#111111] focus:outline-none focus:border-[#E4007C]"
                       />
                     </div>
                   </div>
 
                   {/* Estimated Quote Box */}
-                  <div className="p-4 rounded-2xl bg-[#F7EFE8] border border-[#E8DDD2] flex items-center justify-between">
+                  <div className="p-5 rounded-xl bg-[#FFF0F6] border-2 border-[#111111] flex items-center justify-between shadow-[4px_4px_0px_#111111]">
                     <div>
-                      <span className="text-[11px] font-bold uppercase tracking-wider text-[#7E6C65]">
-                        Estimated Price Guide
+                      <span className="text-[10px] font-black uppercase tracking-widest text-[#E4007C] block">
+                        ESTIMATED PRICE GUIDE
                       </span>
-                      <p className="text-2xl font-serif font-extrabold text-[#231815]">
-                        ~${Math.round(estimatedPrice)}
+                      <p className="text-3xl font-black text-[#111111]">
+                        ~₹{Math.round(estimatedPrice)}
                       </p>
-                      <span className="text-[10px] text-[#A8988D]">
+                      <span className="text-[10px] text-[#6B7280] font-bold">
                         *Final quote confirmed via WhatsApp based on exact floral/fondant detailing.
                       </span>
                     </div>
 
-                    <Cake className="w-10 h-10 text-[#8B4513]/40" />
+                    <Cake className="w-10 h-10 text-[#E4007C]" />
                   </div>
 
                   <div className="pt-4 flex justify-between">
@@ -602,7 +604,7 @@ export default function CustomCakePage() {
                     <button
                       type="submit"
                       disabled={isSubmitting}
-                      className="btn-gold !py-3.5 !px-8 text-sm"
+                      className="btn-gold !py-3.5 !px-8 text-xs font-black"
                     >
                       {isSubmitting ? 'Submitting Design...' : 'Submit & Connect with Baker ✨'}
                     </button>

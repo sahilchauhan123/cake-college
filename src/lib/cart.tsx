@@ -98,7 +98,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   };
 
   const subtotal = items.reduce((sum, item) => sum + item.price * item.quantity, 0);
-  const deliveryFee = fulfillmentType === 'DELIVERY' && subtotal > 0 ? 5.0 : 0.0;
+  const deliveryFee = fulfillmentType === 'DELIVERY' && subtotal > 0 ? (subtotal >= 1000 ? 0.0 : 60.0) : 0.0;
   const total = subtotal + deliveryFee;
   const totalItemCount = items.reduce((sum, item) => sum + item.quantity, 0);
 

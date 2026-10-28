@@ -28,9 +28,9 @@ export function formatOrderWhatsAppMessage(order: {
   const itemsText = order.items
     .map(
       (item) =>
-        `• *${item.quantity}x ${item.name}* (${item.size || 'Standard'}) - $${(
+        `• *${item.quantity}x ${item.name}* (${item.size || 'Standard'}) - ₹${Math.round(
           item.price * item.quantity
-        ).toFixed(2)}${item.message ? `\n   ✍️ Message: "${item.message}"` : ''}`
+        )}${item.message ? `\n   ✍️ Message: "${item.message}"` : ''}`
     )
     .join('\n');
 
@@ -45,9 +45,9 @@ ${order.fulfillmentType === 'DELIVERY' && order.deliveryAddress ? `📍 *Address
 ${itemsText}
 
 ----------------------------------------
-Subtotal: $${order.subtotal.toFixed(2)}
-Delivery Fee: $${order.deliveryFee.toFixed(2)}
-*Total Amount:* *$${order.grandTotal.toFixed(2)}*
+Subtotal: ₹${Math.round(order.subtotal)}
+Delivery Fee: ${order.deliveryFee > 0 ? `₹${Math.round(order.deliveryFee)}` : 'FREE'}
+*Total Amount:* *₹${Math.round(order.grandTotal)}*
 ${order.notes ? `\n📝 *Notes:* ${order.notes}` : ''}
 ----------------------------------------
 Please reply to confirm availability and scheduled baking time! ✨`;

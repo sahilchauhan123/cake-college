@@ -11,6 +11,10 @@ const nextConfig = {
         protocol: 'https',
         hostname: 'jdfswrmuigcbiyizxrfk.supabase.co',
       },
+      {
+        protocol:'https',
+        hostname:'encrypted-tbn0.gstatic.com'
+      }
     ],
   },
 };

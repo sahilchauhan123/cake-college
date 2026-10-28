@@ -8,18 +8,42 @@ module.exports = {
   theme: {
     extend: {
       colors: {
+        milk: {
+          pink: '#E4007C',           // Signature Milk Bar Hot Pink
+          'pink-hover': '#C2006A',
+          'pink-light': '#FFF0F6',
+          'pink-subtle': '#FFE5F0',
+          yellow: '#FFE600',          // Milk Bar Sunshine Yellow
+          'yellow-light': '#FFFDE0',
+          mint: '#00E5A3',            // Neon Fresh Mint
+          'mint-light': '#E6FCF5',
+          black: '#111111',           // Jet Black
+          charcoal: '#242424',
+          cream: '#FAFAFA',
+          soft: '#F4F4F4',
+        },
         bakery: {
-          primary: '#8B4513',
-          'primary-hover': '#72360E',
-          secondary: '#D97706',
-          dark: '#231815',
-          cream: '#FDFBF7',
-          soft: '#FAF4EB',
+          primary: '#E4007C',
+          'primary-hover': '#C2006A',
+          secondary: '#FFE600',
+          dark: '#111111',
+          cream: '#FFFFFF',
+          soft: '#FFF0F6',
         },
       },
       fontFamily: {
-        serif: ['var(--font-serif)', 'Playfair Display', 'Georgia', 'serif'],
-        sans: ['var(--font-sans)', 'Outfit', '-apple-system', 'sans-serif'],
+        sans: ['var(--font-sans)', 'Plus Jakarta Sans', 'Outfit', '-apple-system', 'sans-serif'],
+        display: ['var(--font-display)', 'Plus Jakarta Sans', 'Outfit', 'sans-serif'],
+        serif: ['var(--font-serif)', 'Playfair Display', 'serif'],
+      },
+      keyframes: {
+        marquee: {
+          '0%': { transform: 'translateX(0%)' },
+          '100%': { transform: 'translateX(-50%)' },
+        },
+      },
+      animation: {
+        marquee: 'marquee 22s linear infinite',
       },
     },
   },

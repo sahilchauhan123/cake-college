@@ -15,6 +15,7 @@ import {
   ShoppingBag,
   ArrowLeft,
   Printer,
+  Sparkles,
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { useCart } from '../../lib/cart';
@@ -151,12 +152,12 @@ export default function CheckoutPage() {
       // Clear the shopping cart
       clearCart();
 
-      // Trigger Celebration Confetti
+      // Trigger Celebration Confetti (Milk Bar Colors)
       confetti({
-        particleCount: 90,
-        spread: 80,
+        particleCount: 100,
+        spread: 85,
         origin: { y: 0.6 },
-        colors: ['#8B4513', '#D97706', '#22C55E', '#BE123C'],
+        colors: ['#E4007C', '#FFE600', '#00E5A3', '#111111'],
       });
     } catch (err) {
       console.error('Error placing order:', err);
@@ -169,69 +170,69 @@ export default function CheckoutPage() {
   // ORDER SUCCESS RECEIPT SCREEN
   if (confirmedOrder) {
     return (
-      <div className="py-12 bg-[#FDFBF7]">
+      <div className="py-12 bg-white">
         <div className="container-custom max-w-2xl">
-          <div className="bg-white rounded-3xl p-8 md:p-10 border border-[#E8DDD2] shadow-xl text-center">
-            <div className="w-16 h-16 rounded-full bg-[#DCFCE7] text-[#15803D] flex items-center justify-center mx-auto mb-4">
+          <div className="bg-[#FFF0F6] rounded-2xl p-8 md:p-10 border-2 border-[#111111] shadow-[6px_6px_0px_#111111] text-center">
+            <div className="w-16 h-16 rounded-full bg-[#DCFCE7] border-2 border-[#15803D] text-[#15803D] flex items-center justify-center mx-auto mb-4">
               <CheckCircle2 className="w-8 h-8" />
             </div>
 
-            <span className="text-xs font-bold uppercase tracking-widest text-[#B45309]">
-              Order Confirmed & Sent to Kitchen
+            <span className="text-[10px] font-black uppercase tracking-widest text-[#E4007C] bg-white border border-[#111111] px-3 py-1 rounded-full">
+              ORDER CONFIRMED &amp; TRANSMITTED TO OVEN
             </span>
-            <h1 className="font-serif text-3xl font-extrabold text-[#231815] mt-1">
-              Thank You, {confirmedOrder.customerName}!
+            <h1 className="text-3xl font-black uppercase tracking-tight text-[#111111] mt-3">
+              THANK YOU, {confirmedOrder.customerName}!
             </h1>
-            <p className="text-xs text-[#7E6C65] mt-1">
-              Order Number: <strong className="text-[#8B4513]">#{confirmedOrder.orderNumber}</strong>
+            <p className="text-xs text-[#6B7280] font-bold mt-1">
+              Order Number: <strong className="text-[#E4007C]">#{confirmedOrder.orderNumber}</strong>
             </p>
 
             {/* Receipt Box */}
-            <div className="mt-6 p-6 rounded-2xl bg-[#FAF4EB] border border-[#E8DDD2] text-left text-xs space-y-3">
-              <div className="flex justify-between border-b border-[#E8DDD2] pb-2 font-bold text-[#231815]">
+            <div className="mt-6 p-6 rounded-xl bg-white border-2 border-[#111111] text-left text-xs space-y-3 shadow-[3px_3px_0px_#111111]">
+              <div className="flex justify-between border-b border-[#111111]/10 pb-2 font-black uppercase text-[#111111]">
                 <span>Fulfillment Type</span>
-                <span>{confirmedOrder.fulfillmentType === 'DELIVERY' ? 'Home Delivery' : 'Bakery Pickup'}</span>
+                <span>{confirmedOrder.fulfillmentType === 'DELIVERY' ? 'Doorstep Delivery' : 'Bakery Pickup'}</span>
               </div>
-              <div className="flex justify-between">
-                <span className="text-[#7E6C65]">Scheduled For:</span>
-                <span className="font-semibold">{confirmedOrder.deliveryDate} ({confirmedOrder.deliverySlot})</span>
+              <div className="flex justify-between font-medium">
+                <span className="text-[#6B7280]">Scheduled For:</span>
+                <span className="font-bold text-[#111111]">{confirmedOrder.deliveryDate} ({confirmedOrder.deliverySlot})</span>
               </div>
               {confirmedOrder.fulfillmentType === 'DELIVERY' && (
-                <div className="flex justify-between">
-                  <span className="text-[#7E6C65]">Address:</span>
-                  <span className="font-semibold text-right max-w-xs">{confirmedOrder.deliveryAddress}</span>
+                <div className="flex justify-between font-medium">
+                  <span className="text-[#6B7280]">Address:</span>
+                  <span className="font-bold text-[#111111] text-right max-w-xs">{confirmedOrder.deliveryAddress}</span>
                 </div>
               )}
 
               {/* Items */}
-              <div className="pt-2 border-t border-[#E8DDD2]">
-                <p className="font-bold text-[#231815] mb-2">Order Items:</p>
-                <div className="space-y-1.5">
+              <div className="pt-2 border-t border-[#111111]/10">
+                <p className="font-black uppercase text-[#111111] mb-2">Order Items:</p>
+                <div className="space-y-1.5 font-medium">
                   {confirmedOrder.items.map((i: any, idx: number) => (
                     <div key={idx} className="flex justify-between">
                       <span>
-                        {i.quantity}x {i.name} ({i.selectedSize})
-                        {i.cakeMessage && <span className="block text-[10px] text-[#A8988D] italic">Message: &ldquo;{i.cakeMessage}&rdquo;</span>}
+                        <strong className="text-[#111111]">{i.quantity}x</strong> {i.name} ({i.selectedSize})
+                        {i.cakeMessage && <span className="block text-[10px] text-[#6B7280] italic">Message: &ldquo;{i.cakeMessage}&rdquo;</span>}
                       </span>
-                      <span className="font-semibold">${(i.price * i.quantity).toFixed(2)}</span>
+                      <span className="font-black text-[#111111]">₹{Math.round(i.price * i.quantity)}</span>
                     </div>
                   ))}
                 </div>
               </div>
 
               {/* Total Calculation */}
-              <div className="pt-2 border-t border-[#E8DDD2] space-y-1">
-                <div className="flex justify-between text-[#7E6C65]">
+              <div className="pt-2 border-t border-[#111111]/10 space-y-1">
+                <div className="flex justify-between font-bold text-[#6B7280]">
                   <span>Subtotal</span>
-                  <span>${confirmedOrder.subtotal.toFixed(2)}</span>
+                  <span>₹{Math.round(confirmedOrder.subtotal)}</span>
                 </div>
-                <div className="flex justify-between text-[#7E6C65]">
+                <div className="flex justify-between font-bold text-[#6B7280]">
                   <span>Delivery Charge</span>
-                  <span>{confirmedOrder.deliveryFee > 0 ? `$${confirmedOrder.deliveryFee.toFixed(2)}` : 'FREE'}</span>
+                  <span>{confirmedOrder.deliveryFee > 0 ? `₹${Math.round(confirmedOrder.deliveryFee)}` : 'FREE'}</span>
                 </div>
-                <div className="flex justify-between text-base font-extrabold text-[#231815] pt-1">
-                  <span>Grand Total</span>
-                  <span className="text-[#8B4513]">${confirmedOrder.total.toFixed(2)}</span>
+                <div className="flex justify-between text-base font-black text-[#111111] pt-1 border-t border-[#111111]/10">
+                  <span className="uppercase">Grand Total</span>
+                  <span className="text-[#E4007C]">₹{Math.round(confirmedOrder.total)}</span>
                 </div>
               </div>
             </div>
@@ -243,7 +244,7 @@ export default function CheckoutPage() {
                   href={whatsappUrl}
                   target="_blank"
                   rel="noreferrer"
-                  className="btn-whatsapp w-full sm:w-auto"
+                  className="btn-whatsapp w-full sm:w-auto text-xs"
                 >
                   <MessageCircle className="w-4 h-4" />
                   Send Order via WhatsApp
@@ -251,12 +252,12 @@ export default function CheckoutPage() {
               )}
               <button
                 onClick={() => window.print()}
-                className="btn-secondary w-full sm:w-auto"
+                className="btn-secondary w-full sm:w-auto text-xs"
               >
                 <Printer className="w-4 h-4" />
                 Print Receipt
               </button>
-              <Link href="/catalogue" className="btn-primary w-full sm:w-auto">
+              <Link href="/catalogue" className="btn-primary w-full sm:w-auto text-xs">
                 Order More Bakes
               </Link>
             </div>
@@ -269,14 +270,14 @@ export default function CheckoutPage() {
   // EMPTY CART GUARD
   if (items.length === 0) {
     return (
-      <div className="py-20 bg-[#FDFBF7] text-center">
+      <div className="py-20 bg-white text-center">
         <div className="container-custom max-w-md">
-          <div className="w-16 h-16 rounded-full bg-[#FAF4EB] text-[#8B4513] flex items-center justify-center mx-auto mb-4">
-            <ShoppingBag className="w-8 h-8 opacity-40" />
+          <div className="w-16 h-16 rounded-full bg-[#FFF0F6] border-2 border-[#111111] text-[#E4007C] flex items-center justify-center mx-auto mb-4">
+            <ShoppingBag className="w-8 h-8" />
           </div>
-          <h1 className="font-serif text-2xl font-bold text-[#231815]">Your box is empty</h1>
-          <p className="text-xs text-[#7E6C65] mt-2 mb-6">
-            Please add cakes, pastries, or artisan breads before proceeding to checkout.
+          <h1 className="text-2xl font-black uppercase tracking-tight text-[#111111]">Your box is empty</h1>
+          <p className="text-xs text-[#6B7280] font-medium mt-2 mb-6">
+            Please add celebration cakes, pastries, or artisan breads before proceeding to checkout.
           </p>
           <Link href="/catalogue" className="btn-primary">
             Browse Bakery Menu
@@ -287,138 +288,140 @@ export default function CheckoutPage() {
   }
 
   return (
-    <div className="py-10 bg-[#FDFBF7]">
+    <div className="py-12 bg-white">
       <div className="container-custom max-w-5xl">
         <div className="mb-6 flex items-center justify-between">
           <Link
             href="/catalogue"
-            className="text-xs font-bold text-[#8B4513] hover:underline flex items-center gap-1"
+            className="text-xs font-black uppercase tracking-wider text-[#111111] hover:text-[#E4007C] flex items-center gap-1 transition-colors"
           >
             <ArrowLeft className="w-3.5 h-3.5" />
             Back to Catalogue
           </Link>
-          <span className="text-xs text-[#7E6C65] font-semibold">Step 2 of 2: Checkout</span>
+          <span className="text-[10px] font-black uppercase tracking-wider text-[#E4007C] bg-[#FFF0F6] border border-[#E4007C]/30 px-3 py-1 rounded-full">
+            STEP 2 OF 2: CHECKOUT
+          </span>
         </div>
 
-        <h1 className="font-serif text-3xl md:text-4xl font-extrabold text-[#231815] mb-8">
-          Complete Your Order
+        <h1 className="text-4xl md:text-5xl font-black uppercase tracking-tight text-[#111111] mb-8">
+          COMPLETE YOUR ORDER
         </h1>
 
         <form onSubmit={handleSubmitOrder} className="grid grid-cols-1 lg:grid-cols-12 gap-8">
           {/* Left Form: Details & Delivery */}
           <div className="lg:col-span-7 space-y-6">
             {/* 1. Fulfillment Toggle */}
-            <div className="bg-white p-6 rounded-3xl border border-[#E8DDD2] shadow-sm">
-              <h2 className="font-serif text-lg font-bold text-[#231815] mb-3">
+            <div className="bg-white p-6 rounded-2xl border-2 border-[#111111] shadow-[4px_4px_0px_#111111]">
+              <h2 className="text-base font-black uppercase tracking-tight text-[#111111] mb-3">
                 1. Delivery or Pickup
               </h2>
               <div className="grid grid-cols-2 gap-3">
                 <button
                   type="button"
                   onClick={() => setFulfillmentType('DELIVERY')}
-                  className={`p-4 rounded-2xl border flex items-center gap-3 transition-all ${
+                  className={`p-4 rounded-xl border-2 flex items-center gap-3 transition-all ${
                     fulfillmentType === 'DELIVERY'
-                      ? 'border-[#8B4513] bg-[#F7EFE8] ring-1 ring-[#8B4513]'
-                      : 'border-[#E8DDD2] bg-[#FAF4EB]'
+                      ? 'border-[#E4007C] bg-[#FFF0F6] shadow-[2px_2px_0px_#E4007C]'
+                      : 'border-[#111111] bg-[#F4F4F4]'
                   }`}
                 >
-                  <Truck className="w-5 h-5 text-[#8B4513]" />
+                  <Truck className="w-5 h-5 text-[#E4007C]" />
                   <div className="text-left">
-                    <p className="text-xs font-bold text-[#231815]">Doorstep Delivery</p>
-                    <p className="text-[10px] text-[#7E6C65]">$5.00 delivery fee</p>
+                    <p className="text-xs font-black uppercase text-[#111111]">Doorstep Delivery</p>
+                    <p className="text-[10px] text-[#6B7280] font-bold">₹60 (FREE above ₹1,000)</p>
                   </div>
                 </button>
 
                 <button
                   type="button"
                   onClick={() => setFulfillmentType('PICKUP')}
-                  className={`p-4 rounded-2xl border flex items-center gap-3 transition-all ${
+                  className={`p-4 rounded-xl border-2 flex items-center gap-3 transition-all ${
                     fulfillmentType === 'PICKUP'
-                      ? 'border-[#8B4513] bg-[#F7EFE8] ring-1 ring-[#8B4513]'
-                      : 'border-[#E8DDD2] bg-[#FAF4EB]'
+                      ? 'border-[#E4007C] bg-[#FFF0F6] shadow-[2px_2px_0px_#E4007C]'
+                      : 'border-[#111111] bg-[#F4F4F4]'
                   }`}
                 >
-                  <Store className="w-5 h-5 text-[#8B4513]" />
+                  <Store className="w-5 h-5 text-[#E4007C]" />
                   <div className="text-left">
-                    <p className="text-xs font-bold text-[#231815]">Bakery Pickup</p>
-                    <p className="text-[10px] text-[#15803D] font-bold">FREE Pickup</p>
+                    <p className="text-xs font-black uppercase text-[#111111]">Bakery Pickup</p>
+                    <p className="text-[10px] text-[#15803D] font-black uppercase">FREE Pickup</p>
                   </div>
                 </button>
               </div>
             </div>
 
             {/* 2. Customer Information */}
-            <div className="bg-white p-6 rounded-3xl border border-[#E8DDD2] shadow-sm">
-              <h2 className="font-serif text-lg font-bold text-[#231815] mb-3">
+            <div className="bg-white p-6 rounded-2xl border-2 border-[#111111] shadow-[4px_4px_0px_#111111]">
+              <h2 className="text-base font-black uppercase tracking-tight text-[#111111] mb-3">
                 2. Contact Information
               </h2>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-bold text-[#231815] uppercase tracking-wider mb-1.5">
+                  <label className="block text-[11px] font-black uppercase tracking-wider text-[#111111] mb-1.5">
                     Your Full Name *
                   </label>
                   <input
                     type="text"
                     required
-                    placeholder="Sophia Martinez"
+                    placeholder="Priya Sharma"
                     value={customerName}
                     onChange={(e) => setCustomerName(e.target.value)}
-                    className="w-full text-sm p-3 rounded-xl bg-[#FAF4EB] border border-[#E8DDD2] focus:outline-none focus:border-[#8B4513]"
+                    className="w-full text-xs font-bold p-3 rounded-xl bg-[#F4F4F4] border-2 border-[#111111] focus:outline-none focus:border-[#E4007C]"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-[#231815] uppercase tracking-wider mb-1.5">
+                  <label className="block text-[11px] font-black uppercase tracking-wider text-[#111111] mb-1.5">
                     WhatsApp Phone Number *
                   </label>
                   <input
                     type="tel"
                     required
-                    placeholder="+1 555 234 5678"
+                    placeholder="+91 98765 43210"
                     value={customerPhone}
                     onChange={(e) => setCustomerPhone(e.target.value)}
-                    className="w-full text-sm p-3 rounded-xl bg-[#FAF4EB] border border-[#E8DDD2] focus:outline-none focus:border-[#8B4513]"
+                    className="w-full text-xs font-bold p-3 rounded-xl bg-[#F4F4F4] border-2 border-[#111111] focus:outline-none focus:border-[#E4007C]"
                   />
                 </div>
               </div>
 
               <div className="mt-4">
-                <label className="block text-xs font-bold text-[#231815] uppercase tracking-wider mb-1.5">
+                <label className="block text-[11px] font-black uppercase tracking-wider text-[#111111] mb-1.5">
                   Email Address (Optional)
                 </label>
                 <input
                   type="email"
-                  placeholder="sophia@example.com"
+                  placeholder="priya.sharma@example.com"
                   value={customerEmail}
                   onChange={(e) => setCustomerEmail(e.target.value)}
-                  className="w-full text-sm p-3 rounded-xl bg-[#FAF4EB] border border-[#E8DDD2] focus:outline-none focus:border-[#8B4513]"
+                  className="w-full text-xs font-bold p-3 rounded-xl bg-[#F4F4F4] border-2 border-[#111111] focus:outline-none focus:border-[#E4007C]"
                 />
               </div>
 
               {fulfillmentType === 'DELIVERY' && (
                 <div className="mt-4">
-                  <label className="block text-xs font-bold text-[#231815] uppercase tracking-wider mb-1.5">
-                    Delivery Address & Apartment *
+                  <label className="block text-[11px] font-black uppercase tracking-wider text-[#111111] mb-1.5">
+                    Delivery Address &amp; Landmark (Flat, Society, Street, City, PIN) *
                   </label>
                   <textarea
                     rows={2}
                     required
-                    placeholder="Flat 4B, Sunflower Apts, Maple Boulevard..."
+                    placeholder="Flat 402, Gokul Heights, 14th Road, Bandra West, Mumbai - 400050"
                     value={deliveryAddress}
                     onChange={(e) => setDeliveryAddress(e.target.value)}
-                    className="w-full text-sm p-3 rounded-xl bg-[#FAF4EB] border border-[#E8DDD2] focus:outline-none focus:border-[#8B4513]"
+                    className="w-full text-xs font-medium p-3 rounded-xl bg-[#F4F4F4] border-2 border-[#111111] focus:outline-none focus:border-[#E4007C]"
                   />
                 </div>
               )}
             </div>
 
             {/* 3. Date & Time Window */}
-            <div className="bg-white p-6 rounded-3xl border border-[#E8DDD2] shadow-sm">
-              <h2 className="font-serif text-lg font-bold text-[#231815] mb-3">
-                3. Date & Preferred Slot
+            <div className="bg-white p-6 rounded-2xl border-2 border-[#111111] shadow-[4px_4px_0px_#111111]">
+              <h2 className="text-base font-black uppercase tracking-tight text-[#111111] mb-3">
+                3. Date &amp; Preferred Slot
               </h2>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-bold text-[#231815] uppercase tracking-wider mb-1.5">
+                  <label className="block text-[11px] font-black uppercase tracking-wider text-[#111111] mb-1.5">
                     Date
                   </label>
                   <div className="relative">
@@ -427,82 +430,82 @@ export default function CheckoutPage() {
                       min={todayString}
                       value={deliveryDate}
                       onChange={(e) => setDeliveryDate(e.target.value)}
-                      className="w-full text-sm p-3 pl-10 rounded-xl bg-[#FAF4EB] border border-[#E8DDD2] focus:outline-none focus:border-[#8B4513]"
+                      className="w-full text-xs font-bold p-3 pl-10 rounded-xl bg-[#F4F4F4] border-2 border-[#111111] focus:outline-none focus:border-[#E4007C]"
                       required
                     />
-                    <Calendar className="w-4 h-4 text-[#7E6C65] absolute left-3 top-3.5 pointer-events-none" />
+                    <Calendar className="w-4 h-4 text-[#111111] absolute left-3 top-3.5 pointer-events-none" />
                   </div>
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-[#231815] uppercase tracking-wider mb-1.5">
+                  <label className="block text-[11px] font-black uppercase tracking-wider text-[#111111] mb-1.5">
                     Time Window
                   </label>
                   <div className="relative">
                     <select
                       value={deliverySlot}
                       onChange={(e) => setDeliverySlot(e.target.value)}
-                      className="w-full text-sm p-3 pl-10 rounded-xl bg-[#FAF4EB] border border-[#E8DDD2] focus:outline-none focus:border-[#8B4513]"
+                      className="w-full text-xs font-bold p-3 pl-10 rounded-xl bg-[#F4F4F4] border-2 border-[#111111] focus:outline-none focus:border-[#E4007C]"
                     >
                       <option value="08:00 - 11:00 (Breakfast Hot Bakes)">8:00 AM - 11:00 AM (Breakfast Hot Bakes)</option>
                       <option value="11:00 - 14:00 (Lunch Time)">11:00 AM - 2:00 PM (Lunch Time)</option>
-                      <option value="15:00 - 18:00 (Afternoon Tea)">3:00 PM - 6:00 PM (Afternoon Tea)</option>
-                      <option value="18:00 - 21:00 (Dinner / Party)">6:00 PM - 9:00 PM (Dinner / Party)</option>
+                      <option value="15:00 - 18:00 (Evening Chai & Pastries)">3:00 PM - 6:00 PM (Evening Chai &amp; Pastries)</option>
+                      <option value="18:00 - 21:00 (Dinner / Celebration)">6:00 PM - 9:00 PM (Dinner / Celebration)</option>
                     </select>
-                    <Clock className="w-4 h-4 text-[#7E6C65] absolute left-3 top-3.5 pointer-events-none" />
+                    <Clock className="w-4 h-4 text-[#111111] absolute left-3 top-3.5 pointer-events-none" />
                   </div>
                 </div>
               </div>
 
               <div className="mt-4">
-                <label className="block text-xs font-bold text-[#231815] uppercase tracking-wider mb-1.5">
+                <label className="block text-[11px] font-black uppercase tracking-wider text-[#111111] mb-1.5">
                   Order Note / Free Gift Message Card
                 </label>
                 <input
                   type="text"
-                  placeholder="e.g. Ring bell twice, or write 'Warmest Wishes from David' on note card"
+                  placeholder="e.g. Ring doorbell twice, or write 'Happy 25th Birthday Rohan!' on note card"
                   value={orderNotes}
                   onChange={(e) => setOrderNotes(e.target.value)}
-                  className="w-full text-sm p-3 rounded-xl bg-[#FAF4EB] border border-[#E8DDD2] focus:outline-none focus:border-[#8B4513]"
+                  className="w-full text-xs font-medium p-3 rounded-xl bg-[#F4F4F4] border-2 border-[#111111] focus:outline-none focus:border-[#E4007C]"
                 />
               </div>
             </div>
 
             {/* 4. Payment Method */}
-            <div className="bg-white p-6 rounded-3xl border border-[#E8DDD2] shadow-sm">
-              <h2 className="font-serif text-lg font-bold text-[#231815] mb-3">
+            <div className="bg-white p-6 rounded-2xl border-2 border-[#111111] shadow-[4px_4px_0px_#111111]">
+              <h2 className="text-base font-black uppercase tracking-tight text-[#111111] mb-3">
                 4. Payment Method
               </h2>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <button
                   type="button"
                   onClick={() => setPaymentMethod('COD')}
-                  className={`p-3.5 rounded-2xl border flex items-center gap-3 transition-all ${
+                  className={`p-4 rounded-xl border-2 flex items-center gap-3 transition-all ${
                     paymentMethod === 'COD'
-                      ? 'border-[#8B4513] bg-[#F7EFE8] ring-1 ring-[#8B4513]'
-                      : 'border-[#E8DDD2] bg-[#FAF4EB]'
+                      ? 'border-[#E4007C] bg-[#FFF0F6] shadow-[2px_2px_0px_#E4007C]'
+                      : 'border-[#111111] bg-[#F4F4F4]'
                   }`}
                 >
-                  <Banknote className="w-5 h-5 text-[#8B4513]" />
+                  <Banknote className="w-5 h-5 text-[#E4007C]" />
                   <div className="text-left">
-                    <p className="text-xs font-bold text-[#231815]">Cash / Card on Delivery</p>
-                    <p className="text-[10px] text-[#7E6C65]">Pay at doorstep</p>
+                    <p className="text-xs font-black uppercase text-[#111111]">Cash / Pay on Delivery</p>
+                    <p className="text-[10px] text-[#6B7280] font-bold">Cash or UPI at doorstep</p>
                   </div>
                 </button>
 
                 <button
                   type="button"
                   onClick={() => setPaymentMethod('UPI')}
-                  className={`p-3.5 rounded-2xl border flex items-center gap-3 transition-all ${
+                  className={`p-4 rounded-xl border-2 flex items-center gap-3 transition-all ${
                     paymentMethod === 'UPI'
-                      ? 'border-[#8B4513] bg-[#F7EFE8] ring-1 ring-[#8B4513]'
-                      : 'border-[#E8DDD2] bg-[#FAF4EB]'
+                      ? 'border-[#E4007C] bg-[#FFF0F6] shadow-[2px_2px_0px_#E4007C]'
+                      : 'border-[#111111] bg-[#F4F4F4]'
                   }`}
                 >
-                  <CreditCard className="w-5 h-5 text-[#8B4513]" />
+                  <CreditCard className="w-5 h-5 text-[#E4007C]" />
                   <div className="text-left">
-                    <p className="text-xs font-bold text-[#231815]">UPI / Instant QR Pay</p>
-                    <p className="text-[10px] text-[#15803D] font-bold">Fast & Contactless</p>
+                    <p className="text-xs font-black uppercase text-[#111111]">UPI / Instant QR Pay</p>
+                    <p className="text-[10px] text-[#15803D] font-black uppercase">GPay, PhonePe, Paytm</p>
                   </div>
                 </button>
               </div>
@@ -511,15 +514,15 @@ export default function CheckoutPage() {
 
           {/* Right Summary Box */}
           <div className="lg:col-span-5">
-            <div className="bg-white p-6 rounded-3xl border border-[#E8DDD2] shadow-sm sticky top-28 space-y-4">
-              <h2 className="font-serif text-lg font-bold text-[#231815] pb-3 border-b border-[#E8DDD2]">
+            <div className="bg-white p-6 rounded-2xl border-2 border-[#111111] shadow-[6px_6px_0px_#111111] sticky top-28 space-y-4">
+              <h2 className="text-base font-black uppercase tracking-tight text-[#111111] pb-3 border-b-2 border-[#111111]">
                 Order Summary ({items.length} items)
               </h2>
 
               <div className="space-y-3 max-h-72 overflow-y-auto pr-1">
                 {items.map((item) => (
                   <div key={item.id} className="flex gap-3 text-xs">
-                    <div className="w-12 h-12 rounded-xl bg-[#FAF4EB] overflow-hidden shrink-0 relative">
+                    <div className="w-12 h-12 rounded-xl bg-[#FFF0F6] border border-[#111111]/20 overflow-hidden shrink-0 relative">
                       <Image
                         src={item.image}
                         alt={item.name}
@@ -529,51 +532,51 @@ export default function CheckoutPage() {
                       />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="font-bold text-[#231815] truncate">{item.name}</p>
-                      <p className="text-[10px] text-[#B45309]">{item.selectedSize}</p>
+                      <p className="font-black text-xs uppercase text-[#111111] truncate">{item.name}</p>
+                      <p className="text-[10px] font-black text-[#E4007C] uppercase">{item.selectedSize}</p>
                       {item.cakeMessage && (
-                        <p className="text-[10px] text-[#7E6C65] italic truncate">
+                        <p className="text-[10px] text-[#6B7280] italic truncate">
                           &ldquo;{item.cakeMessage}&rdquo;
                         </p>
                       )}
                     </div>
                     <div className="text-right">
-                      <p className="font-bold text-[#231815]">
-                        ${(item.price * item.quantity).toFixed(2)}
+                      <p className="font-black text-[#111111]">
+                        ₹{Math.round(item.price * item.quantity)}
                       </p>
-                      <p className="text-[10px] text-[#7E6C65]">Qty: {item.quantity}</p>
+                      <p className="text-[10px] text-[#6B7280] font-bold">Qty: {item.quantity}</p>
                     </div>
                   </div>
                 ))}
               </div>
 
               {/* Price Calculation */}
-              <div className="pt-4 border-t border-[#E8DDD2] space-y-2 text-xs">
-                <div className="flex justify-between text-[#7E6C65]">
-                  <span>Subtotal</span>
-                  <span className="font-semibold text-[#231815]">${subtotal.toFixed(2)}</span>
+              <div className="pt-4 border-t-2 border-[#111111]/10 space-y-2 text-xs">
+                <div className="flex justify-between font-bold text-[#6B7280]">
+                  <span>SUBTOTAL</span>
+                  <span className="font-black text-[#111111]">₹{Math.round(subtotal)}</span>
                 </div>
-                <div className="flex justify-between text-[#7E6C65]">
-                  <span>Fulfillment ({fulfillmentType === 'DELIVERY' ? 'Delivery' : 'Pickup'})</span>
-                  <span className="font-semibold text-[#231815]">
-                    {deliveryFee > 0 ? `$${deliveryFee.toFixed(2)}` : 'FREE'}
+                <div className="flex justify-between font-bold text-[#6B7280]">
+                  <span>FULFILLMENT ({fulfillmentType === 'DELIVERY' ? 'DELIVERY' : 'PICKUP'})</span>
+                  <span className="font-black text-[#111111]">
+                    {deliveryFee > 0 ? `₹${Math.round(deliveryFee)}` : 'FREE'}
                   </span>
                 </div>
-                <div className="flex justify-between text-lg font-extrabold text-[#231815] pt-2 border-t border-[#E8DDD2]">
-                  <span>Total Amount</span>
-                  <span className="text-[#8B4513] font-serif">${total.toFixed(2)}</span>
+                <div className="flex justify-between text-lg font-black text-[#111111] pt-2 border-t-2 border-[#111111]">
+                  <span className="uppercase">TOTAL AMOUNT</span>
+                  <span className="text-[#E4007C]">₹{Math.round(total)}</span>
                 </div>
               </div>
 
               <button
                 type="submit"
                 disabled={isSubmitting}
-                className="btn-primary w-full py-3.5 text-sm font-bold flex items-center justify-center gap-2 mt-4"
+                className="btn-primary w-full py-4 text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2 mt-4"
               >
-                {isSubmitting ? 'Sending to Kitchen...' : `Confirm & Place Order ($${total.toFixed(2)})`}
+                {isSubmitting ? 'Transmitting to Kitchen...' : `Confirm & Place Order (₹${Math.round(total)})`}
               </button>
 
-              <p className="text-[11px] text-center text-[#7E6C65]">
+              <p className="text-[10px] text-center text-[#6B7280] font-semibold">
                 🔒 Orders directly transmit to kitchen staff. You will receive an instant WhatsApp confirmation link!
               </p>
             </div>
