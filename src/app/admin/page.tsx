@@ -1061,36 +1061,58 @@ export default function AdminDashboardPage() {
                   </div>
                 </div>
 
-                {/* Card 3: Bakery Pass Debit Card (like Citibank card in reference) */}
-                <div className="md:col-span-4 bg-gradient-to-tr from-[#FF7A45] via-[#FF5364] to-[#E4007C] p-6 rounded-2xl shadow-[0_12px_30px_rgba(228,0,124,0.22)] text-white flex flex-col justify-between relative overflow-hidden">
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <span className="text-[10px] font-bold uppercase tracking-wider text-white/80 block">
-                        Bakery Operations Pass
-                      </span>
-                      <span className="text-base font-bold text-white tracking-tight">
-                        Sweet Delight Patisserie
-                      </span>
-                    </div>
-                    <div className="w-8 h-8 rounded-lg bg-white/20 backdrop-blur-xs flex items-center justify-center text-white">
-                      <ChefHat className="w-4 h-4" />
+                {/* Card 3: Custom Cake Lab */}
+                <div className="md:col-span-4 bg-white p-5 rounded-2xl border border-slate-100 shadow-[0_4px_20px_rgba(0,0,0,0.03)] hover:shadow-[0_8px_25px_rgba(0,0,0,0.05)] transition-all flex flex-col justify-between">
+                  <div>
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-xl bg-violet-50 text-violet-600 flex items-center justify-center font-bold text-sm">
+                          <Sparkles className="w-5 h-5" />
+                        </div>
+                        <div>
+                          <h3 className="font-bold text-sm text-slate-800">Custom Cake Lab</h3>
+                          <span className="text-[11px] text-slate-400 font-medium">Bespoke Inquiries</span>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <span className="text-lg font-bold text-violet-700 block">
+                          {cakeRequests.length} Requests
+                        </span>
+                        <span className="text-[11px] font-medium text-slate-400">
+                          {cakeRequests.filter((c) => (c.status || 'PENDING') === 'PENDING').length} awaiting reply
+                        </span>
+                      </div>
                     </div>
                   </div>
 
-                  <div className="my-4">
-                    <span className="text-lg sm:text-xl font-mono font-medium tracking-widest text-white block drop-shadow-xs">
-                      2569 &nbsp;6845 &nbsp;3789 &nbsp;2586
-                    </span>
-                  </div>
-
-                  <div className="flex items-end justify-between text-xs pt-2 border-t border-white/20">
-                    <div>
-                      <span className="text-[9px] uppercase tracking-wider text-white/70 block font-medium">Head Chef</span>
-                      <span className="font-semibold text-white">CHEF MAYA J.</span>
-                    </div>
-                    <div className="text-right">
-                      <span className="text-[9px] uppercase tracking-wider text-white/70 block font-medium">Daily Target</span>
-                      <span className="font-bold text-[#FFE600]">₹25,000 / Day</span>
+                  {/* Smooth Sparkline */}
+                  <div className="pt-2">
+                    <svg viewBox="0 0 200 55" className="w-full h-14 overflow-visible">
+                      <defs>
+                        <linearGradient id="violetSpark" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stopColor="#8B5CF6" stopOpacity="0.2" />
+                          <stop offset="100%" stopColor="#8B5CF6" stopOpacity="0.0" />
+                        </linearGradient>
+                      </defs>
+                      <path
+                        d="M 0 30 Q 25 10, 50 25 T 100 35 T 150 15 T 200 24 L 200 55 L 0 55 Z"
+                        fill="url(#violetSpark)"
+                      />
+                      <path
+                        d="M 0 30 Q 25 10, 50 25 T 100 35 T 150 15 T 200 24"
+                        fill="none"
+                        stroke="#8B5CF6"
+                        strokeWidth="2.5"
+                        strokeLinecap="round"
+                      />
+                      <circle cx="150" cy="15" r="4" fill="#8B5CF6" />
+                    </svg>
+                    <div className="flex justify-between text-[10px] font-medium text-slate-400 mt-1">
+                      <span>3D Studio</span>
+                      <span className="text-violet-600 font-semibold">
+                        ₹{cakeRequests.reduce((acc, c) => acc + (Number(c.quoted_price) || 0), 0).toLocaleString('en-IN')} Pipeline
+                      </span>
+                      <span>Real-time</span>
                     </div>
                   </div>
                 </div>
