@@ -15,7 +15,6 @@ export default function Navbar() {
     { href: '/', label: 'HOME' },
     { href: '/catalogue', label: 'BAKERY MENU' },
     { href: '/custom-cake', label: 'CUSTOM CAKE LAB', highlight: true },
-    { href: '/admin', label: 'BAKERY ADMIN' },
   ];
 
   // Do not render storefront navbar on admin pages
