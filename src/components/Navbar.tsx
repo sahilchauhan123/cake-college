@@ -18,6 +18,11 @@ export default function Navbar() {
     { href: '/admin', label: 'BAKERY ADMIN' },
   ];
 
+  // Do not render storefront navbar on admin pages
+  if (pathname?.startsWith('/admin')) {
+    return null;
+  }
+
   return (
     <header className="sticky top-0 z-50 bg-white shadow-xs">
       {/* 1. Milk Bar Signature Announcement Ticker */}

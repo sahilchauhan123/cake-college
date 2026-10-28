@@ -11,6 +11,10 @@ export default function MobileBottomBar() {
   const pathname = usePathname();
   const { totalItemCount, setIsCartOpen } = useCart();
 
+  if (pathname?.startsWith('/admin')) {
+    return null;
+  }
+
   return (
     <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-md border-t-2 border-[#111111] z-40 px-3 py-2 shadow-lg">
       <div className="flex items-center justify-around">

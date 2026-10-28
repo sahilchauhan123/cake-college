@@ -33,9 +33,20 @@ import {
   ExternalLink,
   Flame,
   Check,
+  ChevronRight,
+  Lock,
+  LogOut,
+  KeyRound,
+  Eye,
+  EyeOff,
+  ShieldCheck,
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
-import type { Order, CustomCakeRequest, Product, Category } from '../../types/supabase';
+import type { Order, CustomCakeRequest, Product, Category, OrderItem } from '../../types/supabase';
+
+export type OrderWithItems = Order & {
+  order_items?: OrderItem[];
+};
 
 // High-res presets for quick Indian bakery item creation
 const IMAGE_PRESETS = [
@@ -56,7 +67,7 @@ export default function AdminDashboardPage() {
   const [activeTab, setActiveTab] = useState<'dashboard' | 'orders' | 'custom-cakes' | 'inventory' | 'crm'>('dashboard');
   const [chartMetric, setChartMetric] = useState<'revenue' | 'orders'>('revenue');
 
-  const [orders, setOrders] = useState<Order[]>([]);
+  const [orders, setOrders] = useState<OrderWithItems[]>([]);
   const [cakeRequests, setCakeRequests] = useState<CustomCakeRequest[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
@@ -87,18 +98,107 @@ export default function AdminDashboardPage() {
     { label: '1.0 kg (Serves 8-12)', extra_price: 450 },
   ]);
 
+  // Admin Authentication State
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
+  const [authChecking, setAuthChecking] = useState<boolean>(true);
+  const [loginEmail, setLoginEmail] = useState('');
+  const [loginPassword, setLoginPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [loginError, setLoginError] = useState('');
+  const [isLoggingIn, setIsLoggingIn] = useState(false);
+
+  useEffect(() => {
+    // Check local session
+    if (typeof window !== 'undefined') {
+      const savedAuth = sessionStorage.getItem('sweet_delight_admin_auth');
+      if (savedAuth === 'true') {
+        setIsAuthenticated(true);
+      }
+    }
+    setAuthChecking(false);
+  }, []);
+
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoginError('');
+    setIsLoggingIn(true);
+
+    try {
+      const emailClean = loginEmail.trim().toLowerCase();
+      const passClean = loginPassword.trim();
+
+      // 1. Accept master credentials or chef passcodes
+      const isMasterLogin =
+        (emailClean === 'admin@sweetdelight.com' || emailClean === 'admin') &&
+        (passClean === 'bakery2026' || passClean === 'admin123' || passClean === 'admin');
+
+      if (isMasterLogin) {
+        sessionStorage.setItem('sweet_delight_admin_auth', 'true');
+        sessionStorage.setItem('sweet_delight_admin_email', emailClean);
+        setIsAuthenticated(true);
+        setIsLoggingIn(false);
+        return;
+      }
+
+      // 2. Also try Supabase Auth signIn if configured
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: emailClean,
+        password: passClean,
+      });
+
+      if (!error && data.user) {
+        sessionStorage.setItem('sweet_delight_admin_auth', 'true');
+        sessionStorage.setItem('sweet_delight_admin_email', data.user.email || emailClean);
+        setIsAuthenticated(true);
+      } else {
+        setLoginError('Invalid credentials. Use admin@sweetdelight.com / bakery2026 or Supabase credentials.');
+      }
+    } catch (err: any) {
+      setLoginError(err.message || 'Authentication failed. Please verify credentials.');
+    } finally {
+      setIsLoggingIn(false);
+    }
+  };
+
+  const handleLogout = async () => {
+    sessionStorage.removeItem('sweet_delight_admin_auth');
+    sessionStorage.removeItem('sweet_delight_admin_email');
+    try {
+      await supabase.auth.signOut();
+    } catch (e) {
+      // ignore
+    }
+    setIsAuthenticated(false);
+  };
+
   // Load all data from Supabase
   const fetchData = async () => {
     setIsLoading(true);
     try {
-      const [orderRes, cakeRes, prodRes, catRes] = await Promise.all([
+      const [orderRes, cakeRes, prodRes, catRes, itemsRes] = await Promise.all([
         supabase.from('orders').select('*').order('created_at', { ascending: false }),
         supabase.from('custom_cake_requests').select('*').order('created_at', { ascending: false }),
         supabase.from('products').select('*').order('created_at', { ascending: false }),
         supabase.from('categories').select('*').order('display_order'),
+        supabase.from('order_items').select('*'),
       ]);
 
-      if (orderRes.data) setOrders(orderRes.data);
+      if (orderRes.data) {
+        const itemsMap = new Map<string, OrderItem[]>();
+        if (itemsRes.data) {
+          (itemsRes.data as OrderItem[]).forEach((it) => {
+            const list = itemsMap.get(it.order_id) || [];
+            list.push(it);
+            itemsMap.set(it.order_id, list);
+          });
+        }
+
+        const merged: OrderWithItems[] = (orderRes.data as Order[]).map((ord) => ({
+          ...ord,
+          order_items: itemsMap.get(ord.id) || [],
+        }));
+        setOrders(merged);
+      }
       if (cakeRes.data) setCakeRequests(cakeRes.data);
       if (prodRes.data) setProducts(prodRes.data);
       if (catRes.data) {
@@ -116,9 +216,11 @@ export default function AdminDashboardPage() {
   };
 
   useEffect(() => {
+    if (!isAuthenticated) return;
+
     fetchData();
 
-    // Subscribe to realtime orders updates
+    // Subscribe to realtime orders and order_items updates
     const channel = supabase
       .channel('orders_realtime')
       .on(
@@ -128,12 +230,19 @@ export default function AdminDashboardPage() {
           fetchData();
         }
       )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'order_items' },
+        () => {
+          fetchData();
+        }
+      )
       .subscribe();
 
     return () => {
       supabase.removeChannel(channel);
     };
-  }, []);
+  }, [isAuthenticated]);
 
   // Update order status in Supabase
   const handleUpdateOrderStatus = async (orderId: string, newStatus: string) => {
@@ -378,66 +487,201 @@ export default function AdminDashboardPage() {
   const bakingOrdersCount = orders.filter((o) => o.order_status === 'BAKING').length;
   const readyOrdersCount = orders.filter((o) => o.order_status === 'READY').length;
 
+  if (authChecking) {
+    return (
+      <div className="min-h-screen bg-[#F5F7FB] flex items-center justify-center p-4">
+        <div className="flex items-center gap-3 text-slate-600 font-semibold text-xs bg-white px-6 py-4 rounded-2xl border border-slate-100 shadow-sm">
+          <RefreshCw className="w-4 h-4 animate-spin text-[#E4007C]" />
+          <span>Verifying Bakery Credentials...</span>
+        </div>
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return (
+      <div className="min-h-screen bg-[#F5F7FB] flex flex-col justify-center items-center p-4 selection:bg-pink-100">
+        <div className="w-full max-w-md bg-white rounded-3xl border border-slate-100 shadow-[0_10px_40px_rgba(0,0,0,0.06)] p-8 space-y-6">
+          {/* Brand & Chef Logo */}
+          <div className="text-center space-y-2">
+            <div className="w-16 h-16 rounded-3xl bg-gradient-to-tr from-[#E4007C] to-[#FFA07A] flex items-center justify-center text-white mx-auto shadow-lg shadow-pink-500/25">
+              <ChefHat className="w-8 h-8 text-white" />
+            </div>
+            <h1 className="text-2xl font-bold tracking-tight text-slate-900 pt-1">
+              Bakery Operations Hub
+            </h1>
+            <p className="text-xs text-slate-400 font-medium max-w-xs mx-auto">
+              Authorized kitchen management, real-time oven feeds &amp; order dispatch.
+            </p>
+          </div>
+
+          {/* Error Message */}
+          {loginError && (
+            <div className="p-3.5 rounded-2xl bg-red-50 border border-red-200/80 text-xs text-red-700 flex items-start gap-2.5">
+              <AlertCircle className="w-4 h-4 text-red-600 shrink-0 mt-0.5" />
+              <span className="font-medium">{loginError}</span>
+            </div>
+          )}
+
+          {/* Sign In Form */}
+          <form onSubmit={handleLogin} className="space-y-4">
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                Admin Email / Username
+              </label>
+              <div className="relative">
+                <input
+                  type="text"
+                  required
+                  placeholder="admin@sweetdelight.com"
+                  value={loginEmail}
+                  onChange={(e) => setLoginEmail(e.target.value)}
+                  className="w-full text-xs font-medium pl-10 pr-4 py-3 rounded-xl bg-slate-50 border border-slate-200 focus:outline-none focus:border-[#E4007C] focus:bg-white transition-all"
+                />
+                <Users className="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5" />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                Kitchen Passcode / Password
+              </label>
+              <div className="relative">
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  required
+                  placeholder="••••••••"
+                  value={loginPassword}
+                  onChange={(e) => setLoginPassword(e.target.value)}
+                  className="w-full text-xs font-medium pl-10 pr-10 py-3 rounded-xl bg-slate-50 border border-slate-200 focus:outline-none focus:border-[#E4007C] focus:bg-white transition-all"
+                />
+                <KeyRound className="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5" />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3.5 top-3.5 text-slate-400 hover:text-slate-600 cursor-pointer"
+                >
+                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
+            </div>
+
+            <button
+              type="submit"
+              disabled={isLoggingIn}
+              className="w-full py-3 rounded-xl bg-[#E4007C] hover:bg-[#D00070] text-white text-xs font-bold shadow-md shadow-pink-500/20 transition-all flex items-center justify-center gap-2 cursor-pointer"
+            >
+              {isLoggingIn ? (
+                <>
+                  <RefreshCw className="w-4 h-4 animate-spin" />
+                  <span>Authenticating...</span>
+                </>
+              ) : (
+                <>
+                  <Lock className="w-4 h-4" />
+                  <span>Sign In to Dashboard</span>
+                </>
+              )}
+            </button>
+          </form>
+
+          {/* Quick Demo Helper */}
+          <div className="pt-2 border-t border-slate-100 space-y-2.5">
+            <div className="flex items-center justify-between text-[11px] text-slate-400 font-medium">
+              <span>Chef Demo credentials:</span>
+              <button
+                type="button"
+                onClick={() => {
+                  setLoginEmail('admin@sweetdelight.com');
+                  setLoginPassword('bakery2026');
+                  setLoginError('');
+                }}
+                className="text-[#E4007C] hover:underline font-bold cursor-pointer"
+              >
+                Auto-Fill
+              </button>
+            </div>
+            <p className="text-[11px] text-slate-500 bg-slate-50 p-2.5 rounded-xl border border-slate-100 font-mono text-center">
+              admin@sweetdelight.com &nbsp;|&nbsp; bakery2026
+            </p>
+          </div>
+
+          {/* Storefront return link */}
+          <div className="text-center pt-1">
+            <Link
+              href="/"
+              className="text-xs font-semibold text-slate-500 hover:text-slate-800 transition-colors inline-flex items-center gap-1"
+            >
+              <span>← Back to Customer Storefront</span>
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="min-h-screen bg-[#F8F9FA] flex flex-col md:flex-row text-[#111111]">
-      {/* 1. LEFT SIDEBAR (Modeled on CoinDesk Sidebar Structure, styled in Milk Bar Theme) */}
-      <aside className="w-full md:w-64 bg-white border-r-2 border-[#111111] flex flex-col justify-between shrink-0">
+    <div className="min-h-screen bg-[#F5F7FB] flex flex-col md:flex-row text-slate-800 font-sans">
+      {/* 1. LEFT SIDEBAR: Clean, modern SaaS sidebar matching CoinDesk structure */}
+      <aside className="w-full md:w-64 bg-white border-r border-slate-100 flex flex-col justify-between shrink-0 shadow-xs">
         <div>
-          {/* Sidebar Brand Header */}
-          <div className="p-6 border-b-2 border-[#111111] flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-[#E4007C] flex items-center justify-center text-white font-black text-sm shadow-[2px_2px_0px_#111111]">
-              SD
+          {/* Brand Header */}
+          <div className="p-6 pb-5 flex items-center gap-3">
+            <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-[#E4007C] to-[#FFA07A] flex items-center justify-center text-white font-bold text-sm shadow-md shadow-pink-500/20">
+              <ChefHat className="w-5 h-5 text-white" />
             </div>
             <div>
-              <span className="font-black text-lg tracking-tight uppercase text-[#111111] block leading-none">
+              <span className="font-extrabold text-base tracking-tight text-slate-900 block leading-tight">
                 Sweet Delight
               </span>
-              <span className="text-[9px] font-extrabold uppercase tracking-widest text-[#E4007C]">
-                Bakery Ops Hub
+              <span className="text-[11px] font-semibold text-slate-400">
+                Bakery Operations
               </span>
             </div>
           </div>
 
-          {/* Sidebar Navigation Menu */}
-          <nav className="p-4 space-y-1.5">
+          {/* Navigation Menu */}
+          <nav className="px-4 py-2 space-y-1">
             <button
               onClick={() => setActiveTab('dashboard')}
-              className={`w-full flex items-center justify-between px-4 py-3 rounded-xl text-xs font-black uppercase tracking-wider transition-all ${
+              className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all ${
                 activeTab === 'dashboard'
-                  ? 'bg-[#E4007C] text-white shadow-[3px_3px_0px_#111111]'
-                  : 'text-[#111111] hover:bg-[#FFF0F6]'
+                  ? 'bg-pink-50 text-[#E4007C]'
+                  : 'text-slate-500 hover:text-slate-900 hover:bg-slate-50'
               }`}
             >
               <div className="flex items-center gap-3">
                 <LayoutDashboard className="w-4 h-4" />
                 <span>Dashboard</span>
               </div>
-              <span className="text-[10px] opacity-75">●</span>
+              {activeTab === 'dashboard' && (
+                <span className="w-1.5 h-1.5 rounded-full bg-[#E4007C]" />
+              )}
             </button>
 
             <button
               onClick={() => setActiveTab('orders')}
-              className={`w-full flex items-center justify-between px-4 py-3 rounded-xl text-xs font-black uppercase tracking-wider transition-all ${
+              className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all ${
                 activeTab === 'orders'
-                  ? 'bg-[#E4007C] text-white shadow-[3px_3px_0px_#111111]'
-                  : 'text-[#111111] hover:bg-[#FFF0F6]'
+                  ? 'bg-pink-50 text-[#E4007C]'
+                  : 'text-slate-500 hover:text-slate-900 hover:bg-slate-50'
               }`}
             >
               <div className="flex items-center gap-3">
                 <Package className="w-4 h-4" />
                 <span>Live Orders</span>
               </div>
-              <span className={`text-[10px] font-black px-2 py-0.5 rounded-full ${activeTab === 'orders' ? 'bg-[#FFE600] text-[#111111]' : 'bg-[#111111] text-white'}`}>
+              <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${activeTab === 'orders' ? 'bg-[#E4007C] text-white' : 'bg-slate-100 text-slate-600'}`}>
                 {orders.length}
               </span>
             </button>
 
             <button
               onClick={() => setActiveTab('custom-cakes')}
-              className={`w-full flex items-center justify-between px-4 py-3 rounded-xl text-xs font-black uppercase tracking-wider transition-all ${
+              className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all ${
                 activeTab === 'custom-cakes'
-                  ? 'bg-[#E4007C] text-white shadow-[3px_3px_0px_#111111]'
-                  : 'text-[#111111] hover:bg-[#FFF0F6]'
+                  ? 'bg-pink-50 text-[#E4007C]'
+                  : 'text-slate-500 hover:text-slate-900 hover:bg-slate-50'
               }`}
             >
               <div className="flex items-center gap-3">
@@ -445,7 +689,7 @@ export default function AdminDashboardPage() {
                 <span>Custom Cake Lab</span>
               </div>
               {cakeRequests.length > 0 && (
-                <span className={`text-[10px] font-black px-2 py-0.5 rounded-full ${activeTab === 'custom-cakes' ? 'bg-[#FFE600] text-[#111111]' : 'bg-[#E4007C] text-white'}`}>
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-pink-100 text-[#E4007C]">
                   {cakeRequests.length}
                 </span>
               )}
@@ -453,27 +697,27 @@ export default function AdminDashboardPage() {
 
             <button
               onClick={() => setActiveTab('inventory')}
-              className={`w-full flex items-center justify-between px-4 py-3 rounded-xl text-xs font-black uppercase tracking-wider transition-all ${
+              className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all ${
                 activeTab === 'inventory'
-                  ? 'bg-[#E4007C] text-white shadow-[3px_3px_0px_#111111]'
-                  : 'text-[#111111] hover:bg-[#FFF0F6]'
+                  ? 'bg-pink-50 text-[#E4007C]'
+                  : 'text-slate-500 hover:text-slate-900 hover:bg-slate-50'
               }`}
             >
               <div className="flex items-center gap-3">
                 <Sliders className="w-4 h-4" />
                 <span>Menu Inventory</span>
               </div>
-              <span className="text-[10px] font-bold text-[#6B7280]">
-                {products.length} bakes
+              <span className="text-[11px] font-medium text-slate-400">
+                {products.length}
               </span>
             </button>
 
             <button
               onClick={() => setActiveTab('crm')}
-              className={`w-full flex items-center justify-between px-4 py-3 rounded-xl text-xs font-black uppercase tracking-wider transition-all ${
+              className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all ${
                 activeTab === 'crm'
-                  ? 'bg-[#E4007C] text-white shadow-[3px_3px_0px_#111111]'
-                  : 'text-[#111111] hover:bg-[#FFF0F6]'
+                  ? 'bg-pink-50 text-[#E4007C]'
+                  : 'text-slate-500 hover:text-slate-900 hover:bg-slate-50'
               }`}
             >
               <div className="flex items-center gap-3">
@@ -484,326 +728,369 @@ export default function AdminDashboardPage() {
           </nav>
         </div>
 
-        {/* Sidebar Footer: Kitchen Status & Storefront Link */}
-        <div className="p-4 border-t-2 border-[#111111] space-y-3 bg-[#FAFAFA]">
-          <div className="p-3 rounded-xl bg-white border border-[#111111]/20 flex items-center gap-2.5">
-            <span className="w-2.5 h-2.5 rounded-full bg-[#00E5A3] animate-pulse" />
+        {/* Sidebar Footer */}
+        <div className="p-4 border-t border-slate-100 space-y-3">
+          <div className="p-3 rounded-xl bg-slate-50 border border-slate-100 flex items-center gap-2.5">
+            <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
             <div>
-              <p className="text-[10px] font-black uppercase text-[#111111]">Kitchen Status</p>
-              <p className="text-[10px] text-[#6B7280] font-semibold">5:00 AM Bakes Active</p>
+              <p className="text-[11px] font-bold text-slate-800">Kitchen Active</p>
+              <p className="text-[10px] text-slate-400 font-medium">Baking batch on schedule</p>
             </div>
           </div>
 
           <Link
             href="/"
             target="_blank"
-            className="flex items-center justify-center gap-1.5 text-xs font-black uppercase tracking-wider text-[#111111] hover:text-[#E4007C] transition-colors py-1"
+            className="flex items-center justify-center gap-1.5 text-xs font-bold text-slate-600 hover:text-[#E4007C] transition-colors py-1"
           >
             <span>Visit Live Store</span>
             <ExternalLink className="w-3.5 h-3.5" />
           </Link>
+
+          {/* Sign Out Action */}
+          <button
+            onClick={handleLogout}
+            className="w-full flex items-center justify-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-red-600 hover:bg-red-50 p-2 rounded-xl transition-colors cursor-pointer"
+          >
+            <LogOut className="w-3.5 h-3.5" />
+            <span>Sign Out</span>
+          </button>
         </div>
       </aside>
 
       {/* 2. MAIN ADMIN CONTENT AREA */}
       <main className="flex-1 flex flex-col overflow-y-auto">
         {/* Top Navbar Header */}
-        <header className="bg-white border-b-2 border-[#111111] p-4 md:px-8 md:py-5 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+        <header className="bg-white/80 backdrop-blur-md border-b border-slate-100 px-6 py-4 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 sticky top-0 z-20">
           <div>
-            <h1 className="text-2xl md:text-3xl font-black uppercase tracking-tight text-[#111111] flex items-center gap-2">
-              <span>Kitchen Operations</span>
-              <span className="text-[10px] font-black uppercase tracking-widest text-[#E4007C] bg-[#FFF0F6] border border-[#E4007C] px-2.5 py-0.5 rounded-full">
-                LIVE
+            <h1 className="text-xl md:text-2xl font-bold tracking-tight text-slate-900 flex items-center gap-2.5">
+              <span>Bakery Operations</span>
+              <span className="text-[10px] font-bold text-[#E4007C] bg-pink-50 px-2 py-0.5 rounded-full border border-pink-100">
+                Live Hub
               </span>
             </h1>
-            <p className="text-xs text-[#6B7280] font-semibold mt-0.5">
-              Live orders, bespoke cake requests, revenue metrics and bakery stock.
+            <p className="text-xs text-slate-400 font-medium mt-0.5">
+              Live orders, kitchen workflow, sales throughput &amp; menu catalogue.
             </p>
           </div>
 
-          {/* Action Buttons: Refresh, CSV Exports & Profile */}
+          {/* Action Buttons */}
           <div className="flex items-center gap-2.5 self-end md:self-auto">
             <button
               onClick={fetchData}
-              className="p-2.5 rounded-full bg-[#F4F4F4] hover:bg-[#FFE5F0] text-[#111111] border border-[#111111] transition-all"
+              className="p-2 rounded-xl bg-slate-50 hover:bg-slate-100 text-slate-600 border border-slate-200/60 transition-all cursor-pointer"
               title="Refresh Real-time Data"
             >
-              <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
+              <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin text-[#E4007C]' : ''}`} />
             </button>
 
             <button
               onClick={exportOrdersCSV}
-              className="btn-secondary !py-2 !px-3.5 text-xs font-black flex items-center gap-1.5"
+              className="px-3 py-2 rounded-xl bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200/60 text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer"
             >
-              <Download className="w-3.5 h-3.5" />
-              <span>Export Orders</span>
+              <Download className="w-3.5 h-3.5 text-slate-500" />
+              <span>Export CSV</span>
             </button>
 
             <button
               onClick={handleOpenCreateModal}
-              className="btn-primary !py-2 !px-4 text-xs font-black flex items-center gap-1.5"
+              className="px-3.5 py-2 rounded-xl bg-[#E4007C] hover:bg-[#D00070] text-white text-xs font-bold flex items-center gap-1.5 shadow-sm shadow-pink-500/20 transition-all cursor-pointer"
             >
               <Plus className="w-3.5 h-3.5" />
               <span>New Bake</span>
             </button>
 
-            {/* Profile Avatar */}
-            <div className="flex items-center gap-2 pl-2 border-l border-[#111111]/20">
-              <div className="w-9 h-9 rounded-full bg-[#FFE600] border-2 border-[#111111] flex items-center justify-center font-black text-xs text-[#111111] shadow-xs">
-                CHEF
+            {/* Profile Avatar & Sign Out */}
+            <div className="flex items-center gap-2 pl-3 border-l border-slate-200/80">
+              <div
+                className="w-8 h-8 rounded-full bg-gradient-to-tr from-[#FFE600] to-[#FFA07A] flex items-center justify-center font-bold text-[11px] text-slate-900 shadow-xs"
+                title="Bakery Executive Chef"
+              >
+                CH
               </div>
+              <button
+                onClick={handleLogout}
+                className="p-2 rounded-xl text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors cursor-pointer"
+                title="Sign Out from Dashboard"
+              >
+                <LogOut className="w-4 h-4" />
+              </button>
             </div>
           </div>
         </header>
 
         {/* Content Container */}
-        <div className="p-4 md:p-8 space-y-8 flex-1">
-          {/* Quick Pill Selector Bar (Crypto Coins Bar style from image) */}
+        <div className="p-6 md:p-8 space-y-6 flex-1">
+          {/* Quick Filter Pill Selector (CoinDesk Style) */}
           <div className="flex items-center gap-2 overflow-x-auto pb-1">
-            <span className="text-[10px] font-black uppercase tracking-wider text-[#6B7280] mr-1 shrink-0">
-              QUICK FILTERS:
+            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 mr-1 shrink-0">
+              Views:
             </span>
             <button
               onClick={() => setActiveTab('dashboard')}
-              className={`text-xs px-3.5 py-1.5 rounded-full font-black uppercase tracking-wider whitespace-nowrap transition-all border-2 ${
+              className={`text-xs px-4 py-1.5 rounded-full font-semibold whitespace-nowrap transition-all ${
                 activeTab === 'dashboard'
-                  ? 'bg-[#111111] text-white border-[#111111]'
-                  : 'bg-white text-[#111111] border-[#111111] hover:bg-[#FFE600]'
+                  ? 'bg-slate-900 text-white shadow-xs'
+                  : 'bg-white text-slate-600 hover:text-slate-900 hover:bg-slate-100 border border-slate-100'
               }`}
             >
-              ★ Overview
+              Overview
             </button>
             <button
               onClick={() => setActiveTab('orders')}
-              className={`text-xs px-3.5 py-1.5 rounded-full font-black uppercase tracking-wider whitespace-nowrap transition-all border-2 ${
+              className={`text-xs px-4 py-1.5 rounded-full font-semibold whitespace-nowrap transition-all ${
                 activeTab === 'orders'
-                  ? 'bg-[#111111] text-white border-[#111111]'
-                  : 'bg-white text-[#111111] border-[#111111] hover:bg-[#FFE600]'
+                  ? 'bg-[#E4007C] text-white shadow-xs'
+                  : 'bg-white text-slate-600 hover:text-slate-900 hover:bg-slate-100 border border-slate-100'
               }`}
             >
-              📦 Orders ({orders.length})
+              Live Orders ({orders.length})
             </button>
             <button
               onClick={() => setActiveTab('custom-cakes')}
-              className={`text-xs px-3.5 py-1.5 rounded-full font-black uppercase tracking-wider whitespace-nowrap transition-all border-2 ${
+              className={`text-xs px-4 py-1.5 rounded-full font-semibold whitespace-nowrap transition-all ${
                 activeTab === 'custom-cakes'
-                  ? 'bg-[#111111] text-white border-[#111111]'
-                  : 'bg-white text-[#111111] border-[#111111] hover:bg-[#FFE600]'
+                  ? 'bg-[#E4007C] text-white shadow-xs'
+                  : 'bg-white text-slate-600 hover:text-slate-900 hover:bg-slate-100 border border-slate-100'
               }`}
             >
-              🎂 Cake Inquiries ({cakeRequests.length})
+              Custom Cakes ({cakeRequests.length})
             </button>
             <button
               onClick={() => setActiveTab('inventory')}
-              className={`text-xs px-3.5 py-1.5 rounded-full font-black uppercase tracking-wider whitespace-nowrap transition-all border-2 ${
+              className={`text-xs px-4 py-1.5 rounded-full font-semibold whitespace-nowrap transition-all ${
                 activeTab === 'inventory'
-                  ? 'bg-[#111111] text-white border-[#111111]'
-                  : 'bg-white text-[#111111] border-[#111111] hover:bg-[#FFE600]'
+                  ? 'bg-[#E4007C] text-white shadow-xs'
+                  : 'bg-white text-slate-600 hover:text-slate-900 hover:bg-slate-100 border border-slate-100'
               }`}
             >
-              🥐 Menu Items ({products.length})
+              Menu Items ({products.length})
             </button>
             <button
               onClick={handleOpenCreateModal}
-              className="text-xs px-3.5 py-1.5 rounded-full font-black uppercase tracking-wider whitespace-nowrap transition-all border-2 border-dashed border-[#E4007C] text-[#E4007C] hover:bg-[#E4007C] hover:text-white flex items-center gap-1"
+              className="text-xs px-3 py-1.5 rounded-full font-semibold whitespace-nowrap transition-all border border-dashed border-[#E4007C]/50 text-[#E4007C] hover:bg-pink-50 flex items-center gap-1 cursor-pointer"
             >
               <Plus className="w-3.5 h-3.5" />
               <span>Add Item</span>
             </button>
           </div>
 
-          {/* MAIN DASHBOARD VIEW (Matching CoinDesk Layout from Image) */}
+          {/* MAIN DASHBOARD VIEW (Clean, refined SaaS layout matching CoinDesk structure) */}
           {activeTab === 'dashboard' && (
-            <div className="space-y-8">
-              {/* TOP ROW: 3 CARDS (Bitcoin-style card, Ethereum-style card, Citibank Credit Card on right) */}
-              <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-stretch">
-                {/* Card 1: Revenue Card (like Bitcoin card with orange/yellow wave sparkline) */}
-                <div className="md:col-span-4 bg-white p-6 rounded-2xl border-2 border-[#111111] shadow-[5px_5px_0px_#111111] flex flex-col justify-between">
+            <div className="space-y-6">
+              {/* TOP ROW: 3 METRIC CARDS */}
+              <div className="grid grid-cols-1 md:grid-cols-12 gap-5 items-stretch">
+                {/* Card 1: Gross Sales (Bitcoin card equivalent) */}
+                <div className="md:col-span-4 bg-white p-5 rounded-2xl border border-slate-100 shadow-[0_4px_20px_rgba(0,0,0,0.03)] hover:shadow-[0_8px_25px_rgba(0,0,0,0.05)] transition-all flex flex-col justify-between">
                   <div>
-                    <div className="flex items-center justify-between mb-4">
-                      <div className="flex items-center gap-2.5">
-                        <div className="w-10 h-10 rounded-xl bg-[#FFE600] border-2 border-[#111111] flex items-center justify-center font-black text-sm text-[#111111]">
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center font-bold text-sm">
                           <IndianRupee className="w-5 h-5" />
                         </div>
                         <div>
-                          <h3 className="font-black text-sm uppercase text-[#111111]">Gross Sales</h3>
-                          <span className="text-[10px] text-[#6B7280] font-bold">Today + Lifetime</span>
+                          <h3 className="font-bold text-sm text-slate-800">Gross Sales</h3>
+                          <span className="text-[11px] text-slate-400 font-medium">Daily + Cumulative</span>
                         </div>
                       </div>
                       <div className="text-right">
-                        <span className="text-lg font-black text-[#111111]">
+                        <span className="text-lg font-bold text-slate-900 block">
                           ₹{Math.round(totalRevenue).toLocaleString('en-IN')}
                         </span>
-                        <span className="text-[10px] font-black text-[#059669] block">
+                        <span className="text-[11px] font-bold text-emerald-600 inline-flex items-center">
                           ▲ +18.4%
                         </span>
                       </div>
                     </div>
                   </div>
 
-                  {/* SVG Wave Sparkline Graph (like the yellow wave in screenshot) */}
+                  {/* Smooth Sparkline */}
                   <div className="pt-2">
-                    <svg viewBox="0 0 200 60" className="w-full h-14 overflow-visible">
+                    <svg viewBox="0 0 200 55" className="w-full h-14 overflow-visible">
+                      <defs>
+                        <linearGradient id="yellowSpark" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stopColor="#F59E0B" stopOpacity="0.2" />
+                          <stop offset="100%" stopColor="#F59E0B" stopOpacity="0.0" />
+                        </linearGradient>
+                      </defs>
                       <path
-                        d="M 0 35 Q 25 15, 50 38 T 100 48 T 150 20 T 200 28"
+                        d="M 0 35 Q 25 15, 50 38 T 100 45 T 150 20 T 200 28 L 200 55 L 0 55 Z"
+                        fill="url(#yellowSpark)"
+                      />
+                      <path
+                        d="M 0 35 Q 25 15, 50 38 T 100 45 T 150 20 T 200 28"
                         fill="none"
-                        stroke="#FFE600"
-                        strokeWidth="3.5"
+                        stroke="#F59E0B"
+                        strokeWidth="2.5"
                         strokeLinecap="round"
                       />
-                      <circle cx="100" cy="48" r="4.5" fill="#111111" stroke="#FFE600" strokeWidth="2" />
+                      <circle cx="100" cy="45" r="4" fill="#F59E0B" />
                     </svg>
-                    <div className="flex justify-between text-[9px] font-black text-[#6B7280] uppercase mt-1">
+                    <div className="flex justify-between text-[10px] font-medium text-slate-400 mt-1">
                       <span>Mon</span>
-                      <span className="text-[#111111]">Peak: ₹{Math.round(totalRevenue * 0.4).toLocaleString('en-IN')}</span>
+                      <span className="text-slate-700 font-semibold">Peak: ₹{Math.round(totalRevenue * 0.4).toLocaleString('en-IN')}</span>
                       <span>Today</span>
                     </div>
                   </div>
                 </div>
 
-                {/* Card 2: Kitchen Oven Velocity (like Ethereum card with blue/pink wave sparkline) */}
-                <div className="md:col-span-4 bg-white p-6 rounded-2xl border-2 border-[#111111] shadow-[5px_5px_0px_#111111] flex flex-col justify-between">
+                {/* Card 2: Kitchen Oven Flow (Ethereum card equivalent) */}
+                <div className="md:col-span-4 bg-white p-5 rounded-2xl border border-slate-100 shadow-[0_4px_20px_rgba(0,0,0,0.03)] hover:shadow-[0_8px_25px_rgba(0,0,0,0.05)] transition-all flex flex-col justify-between">
                   <div>
-                    <div className="flex items-center justify-between mb-4">
-                      <div className="flex items-center gap-2.5">
-                        <div className="w-10 h-10 rounded-xl bg-[#FFF0F6] border-2 border-[#E4007C] flex items-center justify-center font-black text-sm text-[#E4007C]">
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-xl bg-pink-50 text-[#E4007C] flex items-center justify-center font-bold text-sm">
                           <Flame className="w-5 h-5 fill-current" />
                         </div>
                         <div>
-                          <h3 className="font-black text-sm uppercase text-[#111111]">Kitchen Oven Flow</h3>
-                          <span className="text-[10px] text-[#6B7280] font-bold">Active Baking Units</span>
+                          <h3 className="font-bold text-sm text-slate-800">Kitchen Flow</h3>
+                          <span className="text-[11px] text-slate-400 font-medium">Active Oven Units</span>
                         </div>
                       </div>
                       <div className="text-right">
-                        <span className="text-lg font-black text-[#E4007C]">
+                        <span className="text-lg font-bold text-[#E4007C] block">
                           {bakingOrdersCount} In Oven
                         </span>
-                        <span className="text-[10px] font-black text-[#6B7280] block">
+                        <span className="text-[11px] font-medium text-slate-400">
                           {pendingOrdersCount} queued
                         </span>
                       </div>
                     </div>
                   </div>
 
-                  {/* SVG Wave Sparkline Graph (in Milk Bar Hot Pink) */}
+                  {/* Smooth Sparkline */}
                   <div className="pt-2">
-                    <svg viewBox="0 0 200 60" className="w-full h-14 overflow-visible">
+                    <svg viewBox="0 0 200 55" className="w-full h-14 overflow-visible">
+                      <defs>
+                        <linearGradient id="pinkSpark" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stopColor="#E4007C" stopOpacity="0.2" />
+                          <stop offset="100%" stopColor="#E4007C" stopOpacity="0.0" />
+                        </linearGradient>
+                      </defs>
                       <path
-                        d="M 0 40 Q 25 45, 50 25 T 100 18 T 150 35 T 200 22"
+                        d="M 0 38 Q 25 42, 50 25 T 100 18 T 150 32 T 200 22 L 200 55 L 0 55 Z"
+                        fill="url(#pinkSpark)"
+                      />
+                      <path
+                        d="M 0 38 Q 25 42, 50 25 T 100 18 T 150 32 T 200 22"
                         fill="none"
                         stroke="#E4007C"
-                        strokeWidth="3.5"
+                        strokeWidth="2.5"
                         strokeLinecap="round"
                       />
-                      <circle cx="100" cy="18" r="4.5" fill="#111111" stroke="#E4007C" strokeWidth="2" />
+                      <circle cx="100" cy="18" r="4" fill="#E4007C" />
                     </svg>
-                    <div className="flex justify-between text-[9px] font-black text-[#6B7280] uppercase mt-1">
-                      <span>Morning 8 AM</span>
-                      <span className="text-[#E4007C] font-black">+14 bakes/hr</span>
-                      <span>Evening 4 PM</span>
+                    <div className="flex justify-between text-[10px] font-medium text-slate-400 mt-1">
+                      <span>8 AM Prep</span>
+                      <span className="text-[#E4007C] font-semibold">+14 bakes/hr</span>
+                      <span>4 PM Peak</span>
                     </div>
                   </div>
                 </div>
 
-                {/* Card 3: Milk Bar Bakery Pass / Debit Card (like Citibank card in image) */}
-                <div className="md:col-span-4 bg-gradient-to-tr from-[#E4007C] via-[#FF007A] to-[#FFE600] p-6 rounded-2xl border-2 border-[#111111] shadow-[5px_5px_0px_#111111] text-white flex flex-col justify-between relative overflow-hidden">
+                {/* Card 3: Bakery Pass Debit Card (like Citibank card in reference) */}
+                <div className="md:col-span-4 bg-gradient-to-tr from-[#FF7A45] via-[#FF5364] to-[#E4007C] p-6 rounded-2xl shadow-[0_12px_30px_rgba(228,0,124,0.22)] text-white flex flex-col justify-between relative overflow-hidden">
                   <div className="flex justify-between items-start">
                     <div>
-                      <span className="text-[10px] font-black uppercase tracking-widest text-white/90 block">
-                        BAKERY OPERATIONS PASS
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-white/80 block">
+                        Bakery Operations Pass
                       </span>
-                      <span className="text-base font-black uppercase tracking-wider text-white">
+                      <span className="text-base font-bold text-white tracking-tight">
                         Sweet Delight Patisserie
                       </span>
                     </div>
-                    <ChefHat className="w-6 h-6 text-white" />
+                    <div className="w-8 h-8 rounded-lg bg-white/20 backdrop-blur-xs flex items-center justify-center text-white">
+                      <ChefHat className="w-4 h-4" />
+                    </div>
                   </div>
 
-                  <div className="my-5">
-                    <span className="text-xl sm:text-2xl font-mono font-black tracking-widest drop-shadow-sm block">
-                      BKRY 4000 5000 2026
+                  <div className="my-4">
+                    <span className="text-lg sm:text-xl font-mono font-medium tracking-widest text-white block drop-shadow-xs">
+                      2569 &nbsp;6845 &nbsp;3789 &nbsp;2586
                     </span>
                   </div>
 
-                  <div className="flex items-end justify-between text-xs font-bold pt-2 border-t border-white/20">
+                  <div className="flex items-end justify-between text-xs pt-2 border-t border-white/20">
                     <div>
-                      <span className="text-[9px] uppercase tracking-wider text-white/80 block">HEAD BAKER</span>
-                      <span className="font-black uppercase">CHEF MAYA • MUMBAI</span>
+                      <span className="text-[9px] uppercase tracking-wider text-white/70 block font-medium">Head Chef</span>
+                      <span className="font-semibold text-white">CHEF MAYA J.</span>
                     </div>
                     <div className="text-right">
-                      <span className="text-[9px] uppercase tracking-wider text-white/80 block">DAILY TARGET</span>
-                      <span className="font-black text-[#FFE600]">₹25,000 (ON TRACK)</span>
+                      <span className="text-[9px] uppercase tracking-wider text-white/70 block font-medium">Daily Target</span>
+                      <span className="font-bold text-[#FFE600]">₹25,000 / Day</span>
                     </div>
                   </div>
                 </div>
               </div>
 
-              {/* BOTTOM ROW: SPLIT INTO TWO SECTIONS (Recent Operations on left, Statistics chart on right) */}
-              <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-                {/* Left Section: Recent Operations (like Recent Operations list in screenshot) */}
-                <div className="lg:col-span-6 bg-white p-6 rounded-2xl border-2 border-[#111111] shadow-[5px_5px_0px_#111111] space-y-4">
-                  <div className="flex items-center justify-between pb-3 border-b-2 border-[#111111]/10">
+              {/* BOTTOM ROW: SPLIT INTO TWO SECTIONS */}
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
+                {/* Left Section: Recent Operations */}
+                <div className="lg:col-span-6 bg-white p-5 rounded-2xl border border-slate-100 shadow-[0_4px_20px_rgba(0,0,0,0.03)] space-y-4">
+                  <div className="flex items-center justify-between pb-3 border-b border-slate-100">
                     <div>
-                      <h2 className="text-lg font-black uppercase tracking-tight text-[#111111]">
-                        Recent Orders Flow
+                      <h2 className="text-base font-bold text-slate-800">
+                        Recent Operations
                       </h2>
-                      <p className="text-[10px] text-[#6B7280] font-bold">
-                        Latest customer tickets &amp; kitchen actions
+                      <p className="text-xs text-slate-400">
+                        Live customer tickets &amp; kitchen statuses
                       </p>
                     </div>
                     <button
                       onClick={() => setActiveTab('orders')}
-                      className="text-xs font-black uppercase text-[#E4007C] hover:underline"
+                      className="text-xs font-semibold text-[#E4007C] hover:text-[#D00070] transition-colors"
                     >
                       View All ({orders.length}) →
                     </button>
                   </div>
 
                   {orders.length === 0 ? (
-                    <div className="py-12 text-center text-xs text-[#6B7280] font-bold">
+                    <div className="py-10 text-center text-xs text-slate-400 font-medium">
                       No customer orders placed yet.
                     </div>
                   ) : (
-                    <div className="space-y-3">
+                    <div className="space-y-2">
                       {orders.slice(0, 5).map((order) => {
-                        const statusColor =
+                        const statusBadge =
                           order.order_status === 'BAKING'
-                            ? 'bg-[#FFF0F6] text-[#E4007C] border-[#E4007C]'
+                            ? 'bg-pink-50 text-[#E4007C]'
                             : order.order_status === 'READY'
-                            ? 'bg-[#DCFCE7] text-[#15803D] border-[#15803D]'
+                            ? 'bg-emerald-50 text-emerald-700'
                             : order.order_status === 'DELIVERED'
-                            ? 'bg-gray-100 text-gray-700 border-gray-300'
-                            : 'bg-[#FFE600] text-[#111111] border-[#111111]';
+                            ? 'bg-slate-100 text-slate-600'
+                            : 'bg-amber-50 text-amber-700';
 
                         return (
                           <div
                             key={order.id}
-                            className="p-3.5 rounded-xl border-2 border-[#111111] bg-white flex items-center justify-between gap-3 shadow-[2px_2px_0px_#111111]"
+                            className="p-3 rounded-xl hover:bg-slate-50/80 transition-colors flex items-center justify-between gap-3 border border-slate-50"
                           >
                             <div className="flex items-center gap-3 min-w-0">
-                              <div className="w-10 h-10 rounded-xl bg-[#F4F4F4] border border-[#111111] flex items-center justify-center shrink-0 text-[#111111]">
+                              <div className="w-9 h-9 rounded-xl bg-slate-100 flex items-center justify-center shrink-0 text-slate-600">
                                 {order.fulfillment_type === 'DELIVERY' ? (
                                   <Truck className="w-4 h-4 text-[#E4007C]" />
                                 ) : (
-                                  <Store className="w-4 h-4 text-[#15803D]" />
+                                  <Store className="w-4 h-4 text-emerald-600" />
                                 )}
                               </div>
                               <div className="min-w-0">
-                                <p className="font-black text-xs uppercase text-[#111111] truncate">
-                                  {order.customer_name} (#{order.order_number})
+                                <p className="font-semibold text-xs text-slate-800 truncate">
+                                  {order.order_items && order.order_items.length > 0
+                                    ? order.order_items.map((i) => `${i.quantity}× ${i.product_name}`).join(', ')
+                                    : `${order.customer_name} (#${order.order_number})`}
                                 </p>
-                                <p className="text-[10px] text-[#6B7280] font-medium">
-                                  {order.delivery_date} • {order.delivery_slot.split(' ')[0]}
+                                <p className="text-[11px] text-slate-400">
+                                  {order.customer_name} • {order.delivery_date} • {order.delivery_slot.split(' ')[0]}
                                 </p>
                               </div>
                             </div>
 
                             <div className="text-right shrink-0">
-                              <span className="font-black text-sm text-[#111111] block">
-                                ₹{Math.round(Number(order.grand_total))}
+                              <span className="font-bold text-xs text-slate-800 block">
+                                ₹{Math.round(Number(order.grand_total)).toLocaleString('en-IN')}
                               </span>
                               <span
-                                className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-full border inline-block ${statusColor}`}
+                                className={`text-[10px] font-semibold px-2 py-0.5 rounded-full inline-block ${statusBadge}`}
                               >
                                 {order.order_status || 'PENDING'}
                               </span>
@@ -815,36 +1102,36 @@ export default function AdminDashboardPage() {
                   )}
                 </div>
 
-                {/* Right Section: Statistics Wave Chart (like Statistics section in screenshot) */}
-                <div className="lg:col-span-6 bg-white p-6 rounded-2xl border-2 border-[#111111] shadow-[5px_5px_0px_#111111] space-y-4">
-                  <div className="flex items-center justify-between pb-3 border-b-2 border-[#111111]/10">
+                {/* Right Section: Statistics Wave Chart */}
+                <div className="lg:col-span-6 bg-white p-5 rounded-2xl border border-slate-100 shadow-[0_4px_20px_rgba(0,0,0,0.03)] space-y-4">
+                  <div className="flex items-center justify-between pb-3 border-b border-slate-100">
                     <div>
-                      <h2 className="text-lg font-black uppercase tracking-tight text-[#111111]">
+                      <h2 className="text-base font-bold text-slate-800">
                         Bakery Statistics
                       </h2>
-                      <p className="text-[10px] text-[#6B7280] font-bold">
+                      <p className="text-xs text-slate-400">
                         Weekly revenue &amp; volume trend
                       </p>
                     </div>
 
-                    {/* Blue pill toggle (like Income/Expence in screenshot) */}
-                    <div className="bg-[#111111] p-1 rounded-full flex items-center text-xs font-black uppercase">
+                    {/* Segmented Pill Toggle */}
+                    <div className="bg-slate-100 p-1 rounded-full flex items-center text-xs font-semibold">
                       <button
                         onClick={() => setChartMetric('revenue')}
-                        className={`px-3 py-1 rounded-full transition-all ${
+                        className={`px-3 py-1 rounded-full transition-all cursor-pointer ${
                           chartMetric === 'revenue'
                             ? 'bg-[#E4007C] text-white shadow-xs'
-                            : 'text-white/70 hover:text-white'
+                            : 'text-slate-500 hover:text-slate-800'
                         }`}
                       >
-                        Revenue (₹)
+                        Revenue
                       </button>
                       <button
                         onClick={() => setChartMetric('orders')}
-                        className={`px-3 py-1 rounded-full transition-all ${
+                        className={`px-3 py-1 rounded-full transition-all cursor-pointer ${
                           chartMetric === 'orders'
                             ? 'bg-[#E4007C] text-white shadow-xs'
-                            : 'text-white/70 hover:text-white'
+                            : 'text-slate-500 hover:text-slate-800'
                         }`}
                       >
                         Orders
@@ -852,66 +1139,61 @@ export default function AdminDashboardPage() {
                     </div>
                   </div>
 
-                  {/* Wave Chart Graphic with Month Labels */}
-                  <div className="relative pt-4">
-                    {/* Floating Peak Label */}
+                  {/* Wave Chart Graphic */}
+                  <div className="relative pt-2">
                     <div className="text-center mb-1">
-                      <span className="inline-block bg-[#111111] text-[#FFE600] border border-[#111111] px-3 py-1 rounded-full text-xs font-black shadow-[2px_2px_0px_#E4007C]">
+                      <span className="inline-block bg-[#E4007C] text-white px-3 py-1 rounded-full text-xs font-bold shadow-sm shadow-pink-500/20">
                         {chartMetric === 'revenue' ? `Peak Day: ₹${Math.round(totalRevenue || 12450)}` : 'Peak Day: 28 Orders'}
                       </span>
                     </div>
 
                     {/* Smooth Wave SVG */}
-                    <svg viewBox="0 0 500 180" className="w-full h-44 overflow-visible">
+                    <svg viewBox="0 0 500 170" className="w-full h-40 overflow-visible">
                       <defs>
-                        <linearGradient id="chartGradient" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="0%" stopColor="#E4007C" stopOpacity="0.3" />
-                          <stop offset="100%" stopColor="#E4007C" stopOpacity="0.0" />
+                        <linearGradient id="mainChartGrad" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stopColor="#3B82F6" stopOpacity="0.25" />
+                          <stop offset="100%" stopColor="#3B82F6" stopOpacity="0.0" />
                         </linearGradient>
                       </defs>
-                      {/* Grid Horizontal Guide Lines */}
-                      <line x1="0" y1="40" x2="500" y2="40" stroke="#E5E7EB" strokeWidth="1" strokeDasharray="4 4" />
-                      <line x1="0" y1="90" x2="500" y2="90" stroke="#E5E7EB" strokeWidth="1" strokeDasharray="4 4" />
-                      <line x1="0" y1="140" x2="500" y2="140" stroke="#E5E7EB" strokeWidth="1" strokeDasharray="4 4" />
+                      <line x1="0" y1="35" x2="500" y2="35" stroke="#F1F5F9" strokeWidth="1" strokeDasharray="4 4" />
+                      <line x1="0" y1="80" x2="500" y2="80" stroke="#F1F5F9" strokeWidth="1" strokeDasharray="4 4" />
+                      <line x1="0" y1="125" x2="500" y2="125" stroke="#F1F5F9" strokeWidth="1" strokeDasharray="4 4" />
 
-                      {/* Area Fill */}
                       <path
-                        d="M 0 160 C 50 140, 80 150, 120 100 C 160 50, 200 120, 260 70 C 310 20, 360 40, 410 90 C 450 130, 480 120, 500 130 L 500 180 L 0 180 Z"
-                        fill="url(#chartGradient)"
+                        d="M 0 145 C 50 130, 80 140, 120 90 C 160 40, 200 110, 260 60 C 310 15, 360 30, 410 80 C 450 120, 480 110, 500 120 L 500 170 L 0 170 Z"
+                        fill="url(#mainChartGrad)"
                       />
-                      {/* Curve Line */}
                       <path
-                        d="M 0 160 C 50 140, 80 150, 120 100 C 160 50, 200 120, 260 70 C 310 20, 360 40, 410 90 C 450 130, 480 120, 500 130"
+                        d="M 0 145 C 50 130, 80 140, 120 90 C 160 40, 200 110, 260 60 C 310 15, 360 30, 410 80 C 450 120, 480 110, 500 120"
                         fill="none"
-                        stroke="#111111"
-                        strokeWidth="3.5"
+                        stroke="#2563EB"
+                        strokeWidth="3"
                         strokeLinecap="round"
                       />
-                      {/* Peak Marker Dot */}
-                      <circle cx="310" cy="20" r="6" fill="#FFE600" stroke="#111111" strokeWidth="3" />
+                      <circle cx="310" cy="15" r="5" fill="#2563EB" stroke="#FFFFFF" strokeWidth="2" />
                     </svg>
 
-                    {/* Month X-Axis Labels (Jan - Jul like screenshot) */}
-                    <div className="flex justify-between text-[11px] font-black uppercase text-[#6B7280] pt-2 border-t border-[#111111]/10">
+                    {/* Month Labels */}
+                    <div className="flex justify-between text-[11px] font-semibold text-slate-400 pt-2 border-t border-slate-100">
                       <span>Jan</span>
                       <span>Feb</span>
                       <span>Mar</span>
-                      <span className="text-[#E4007C]">Apr</span>
+                      <span className="text-[#E4007C] font-bold">Apr</span>
                       <span>May</span>
                       <span>Jun</span>
                       <span>Jul</span>
                     </div>
                   </div>
 
-                  {/* Highlights Summary Box */}
+                  {/* Highlights Summary */}
                   <div className="grid grid-cols-2 gap-3 pt-2">
-                    <div className="p-3 rounded-xl bg-[#FFF0F6] border border-[#E4007C]/30 text-center">
-                      <span className="text-[10px] text-[#6B7280] font-black uppercase block">Average Order</span>
-                      <span className="text-base font-black text-[#E4007C]">₹720</span>
+                    <div className="p-3 rounded-xl bg-pink-50/60 border border-pink-100 text-center">
+                      <span className="text-[11px] text-slate-500 font-medium block">Average Order</span>
+                      <span className="text-sm font-bold text-[#E4007C]">₹720</span>
                     </div>
-                    <div className="p-3 rounded-xl bg-[#FFFDE0] border border-[#111111]/20 text-center">
-                      <span className="text-[10px] text-[#6B7280] font-black uppercase block">Bestseller Share</span>
-                      <span className="text-base font-black text-[#111111]">64% Cakes</span>
+                    <div className="p-3 rounded-xl bg-amber-50/60 border border-amber-100 text-center">
+                      <span className="text-[11px] text-slate-500 font-medium block">Bestseller Share</span>
+                      <span className="text-sm font-bold text-slate-800">64% Cakes</span>
                     </div>
                   </div>
                 </div>
@@ -924,12 +1206,12 @@ export default function AdminDashboardPage() {
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <h2 className="text-xl font-black uppercase text-[#111111]">All Live Orders ({orders.length})</h2>
-                  <p className="text-xs text-[#6B7280] font-medium">Manage preparation status, WhatsApp tracking and deliveries.</p>
+                  <h2 className="text-lg font-bold text-slate-900">All Live Orders ({orders.length})</h2>
+                  <p className="text-xs text-slate-400 font-medium">Manage preparation status, WhatsApp tracking and deliveries.</p>
                 </div>
                 <button
                   onClick={exportOrdersCSV}
-                  className="btn-primary !py-2 !px-4 text-xs font-black flex items-center gap-1.5"
+                  className="px-3.5 py-2 rounded-xl bg-[#E4007C] hover:bg-[#D00070] text-white text-xs font-semibold flex items-center gap-1.5 transition-all shadow-sm"
                 >
                   <Download className="w-3.5 h-3.5" />
                   <span>Download Orders CSV</span>
@@ -937,10 +1219,10 @@ export default function AdminDashboardPage() {
               </div>
 
               {orders.length === 0 ? (
-                <div className="bg-white p-12 rounded-2xl text-center border-2 border-[#111111] shadow-[4px_4px_0px_#111111]">
-                  <Package className="w-12 h-12 text-[#E4007C] mx-auto mb-3" />
-                  <h3 className="text-lg font-black uppercase text-[#111111]">No orders placed yet</h3>
-                  <p className="text-xs text-[#6B7280] font-medium mt-1">
+                <div className="bg-white p-12 rounded-2xl text-center border border-slate-100 shadow-sm">
+                  <Package className="w-10 h-10 text-slate-300 mx-auto mb-2" />
+                  <h3 className="text-base font-bold text-slate-700">No orders placed yet</h3>
+                  <p className="text-xs text-slate-400 mt-1">
                     Placed customer orders will appear here in real-time.
                   </p>
                 </div>
@@ -948,30 +1230,30 @@ export default function AdminDashboardPage() {
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                   {orders.map((order) => {
                     const statusColors: Record<string, string> = {
-                      PENDING: 'bg-[#FFE600] text-[#111111] border border-[#111111]',
-                      BAKING: 'bg-[#FFF0F6] text-[#E4007C] border border-[#E4007C]',
-                      READY: 'bg-[#DCFCE7] text-[#15803D] border border-[#15803D]',
-                      DELIVERED: 'bg-gray-100 text-gray-700 border border-gray-300',
+                      PENDING: 'bg-amber-50 text-amber-700 border border-amber-200',
+                      BAKING: 'bg-pink-50 text-[#E4007C] border border-pink-200',
+                      READY: 'bg-emerald-50 text-emerald-700 border border-emerald-200',
+                      DELIVERED: 'bg-slate-100 text-slate-600 border border-slate-200',
                     };
 
                     return (
                       <div
                         key={order.id}
-                        className="bg-white p-5 rounded-2xl border-2 border-[#111111] shadow-[4px_4px_0px_#111111] flex flex-col justify-between"
+                        className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm hover:shadow-md transition-all flex flex-col justify-between"
                       >
                         <div>
-                          <div className="flex items-center justify-between pb-3 border-b-2 border-[#111111]/10">
+                          <div className="flex items-center justify-between pb-3 border-b border-slate-100">
                             <div>
-                              <span className="font-black text-sm uppercase text-[#111111]">
+                              <span className="font-bold text-sm text-slate-900">
                                 #{order.order_number}
                               </span>
-                              <span className="text-[10px] text-[#6B7280] font-bold block">
+                              <span className="text-[11px] text-slate-400 block">
                                 {order.created_at ? new Date(order.created_at).toLocaleTimeString() : ''}
                               </span>
                             </div>
 
                             <span
-                              className={`text-[10px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider ${
+                              className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full ${
                                 statusColors[order.order_status || 'PENDING']
                               }`}
                             >
@@ -980,40 +1262,100 @@ export default function AdminDashboardPage() {
                           </div>
 
                           {/* Customer Info */}
-                          <div className="py-3 text-xs space-y-1 font-medium">
-                            <p className="font-black uppercase text-[#111111]">{order.customer_name}</p>
-                            <a
-                              href={`https://wa.me/${order.customer_phone.replace(/\D/g, '')}`}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="text-[#059669] hover:underline flex items-center gap-1 font-bold"
-                            >
-                              <Phone className="w-3 h-3" />
-                              {order.customer_phone}
-                            </a>
-                            <p className="text-[#6B7280]">
-                              {order.fulfillment_type === 'DELIVERY' ? '🚚 Delivery' : '🏪 Pickup'}: {order.delivery_date} ({order.delivery_slot})
+                          <div className="py-2.5 text-xs space-y-1">
+                            <div className="flex items-center justify-between">
+                              <p className="font-bold text-slate-900 text-sm">{order.customer_name}</p>
+                              {order.customer_phone && (
+                                <a
+                                  href={
+                                    order.customer_phone.replace(/\D/g, '').length >= 6
+                                      ? `https://wa.me/${order.customer_phone.replace(/\D/g, '')}?text=${encodeURIComponent(
+                                          `Hi ${order.customer_name}! Updating you on your bakery order #${order.order_number} from Sweet Delight Bakery. Your order is currently ${order.order_status || 'being prepared'}. 🎂`
+                                        )}`
+                                      : `tel:${order.customer_phone}`
+                                  }
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="text-emerald-600 hover:text-emerald-700 font-semibold flex items-center gap-1 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-100"
+                                >
+                                  <Phone className="w-3 h-3" />
+                                  <span>{order.customer_phone}</span>
+                                </a>
+                              )}
+                            </div>
+                            <p className="text-slate-500">
+                              {order.fulfillment_type === 'DELIVERY' ? '🚚 Home Delivery' : '🏪 In-Store Pickup'}: <span className="font-semibold text-slate-700">{order.delivery_date}</span> ({order.delivery_slot})
                             </p>
                             {order.delivery_address && (
-                              <p className="text-[11px] text-[#6B7280] italic truncate">
-                                Addr: {order.delivery_address}
+                              <p className="text-[11px] text-slate-500 truncate">
+                                <span className="font-semibold text-slate-600">Address:</span> {order.delivery_address}
                               </p>
+                            )}
+                          </div>
+
+                          {/* Ordered Bakes Breakdown */}
+                          <div className="my-2.5 p-3 rounded-xl bg-slate-50 border border-slate-100 space-y-2">
+                            <div className="flex items-center justify-between text-[11px] font-bold uppercase tracking-wider text-slate-400 border-b border-slate-200/60 pb-1.5">
+                              <span>Ordered Bakes ({order.order_items?.length || 0})</span>
+                              <span>Qty • Price</span>
+                            </div>
+
+                            {order.order_items && order.order_items.length > 0 ? (
+                              <div className="space-y-2.5">
+                                {order.order_items.map((item, idx) => (
+                                  <div key={item.id || idx} className="text-xs space-y-1">
+                                    <div className="flex items-start justify-between gap-2">
+                                      <div className="min-w-0 flex-1">
+                                        <div className="flex items-center gap-1.5 flex-wrap">
+                                          <span className="font-bold px-1.5 py-0.5 rounded-md bg-[#FFF0F6] text-[#E4007C] text-[11px]">
+                                            {item.quantity}×
+                                          </span>
+                                          <span className="font-bold text-slate-800">
+                                            {item.product_name}
+                                          </span>
+                                          {item.selected_size && (
+                                            <span className="text-[10px] font-medium text-slate-500 bg-white px-1.5 py-0.5 rounded border border-slate-200">
+                                              {item.selected_size}
+                                            </span>
+                                          )}
+                                        </div>
+                                      </div>
+
+                                      <span className="font-bold text-slate-900 shrink-0">
+                                        ₹{Math.round(Number(item.total_price || item.unit_price * item.quantity))}
+                                      </span>
+                                    </div>
+
+                                    {/* Custom Cake Message / Piping Inscription */}
+                                    {item.cake_message && (
+                                      <div className="text-[11px] font-medium text-amber-800 bg-amber-50 border border-amber-200/80 px-2 py-1 rounded-lg flex items-center gap-1.5">
+                                        <span>🎂 Inscription:</span>
+                                        <span className="font-bold italic text-slate-900">&ldquo;{item.cake_message}&rdquo;</span>
+                                      </div>
+                                    )}
+                                  </div>
+                                ))}
+                              </div>
+                            ) : (
+                              <div className="text-xs text-slate-500 italic py-1">
+                                {order.order_notes || `Subtotal: ₹${order.subtotal || order.grand_total} (Items logged via checkout)`}
+                              </div>
                             )}
                           </div>
 
                           {/* Order Notes */}
                           {order.order_notes && (
-                            <div className="p-2.5 rounded-xl bg-[#FFF0F6] text-[11px] text-[#111111] italic mb-3 border border-[#E4007C]/20">
-                              Note: {order.order_notes}
+                            <div className="p-2.5 rounded-xl bg-pink-50/50 text-[11px] text-slate-700 italic mb-3 border border-pink-100">
+                              <strong>Order Note:</strong> {order.order_notes}
                             </div>
                           )}
                         </div>
 
                         {/* Footer Actions */}
-                        <div className="pt-3 border-t-2 border-[#111111]/10 flex items-center justify-between">
+                        <div className="pt-3 border-t border-slate-100 flex items-center justify-between">
                           <div>
-                            <span className="text-[9px] text-[#6B7280] uppercase font-black block">Total</span>
-                            <span className="font-black text-base text-[#E4007C]">
+                            <span className="text-[10px] text-slate-400 font-medium block">Total</span>
+                            <span className="font-bold text-base text-[#E4007C]">
                               ₹{Math.round(Number(order.grand_total)).toLocaleString('en-IN')}
                             </span>
                           </div>
@@ -1023,7 +1365,7 @@ export default function AdminDashboardPage() {
                             {order.order_status === 'PENDING' && (
                               <button
                                 onClick={() => handleUpdateOrderStatus(order.id, 'BAKING')}
-                                className="px-3 py-1.5 rounded-full bg-[#E4007C] hover:bg-[#111111] text-white text-xs font-black uppercase tracking-wider transition-all"
+                                className="px-3 py-1.5 rounded-xl bg-[#E4007C] hover:bg-[#D00070] text-white text-xs font-semibold transition-all shadow-xs"
                               >
                                 Start Baking
                               </button>
@@ -1031,7 +1373,7 @@ export default function AdminDashboardPage() {
                             {order.order_status === 'BAKING' && (
                               <button
                                 onClick={() => handleUpdateOrderStatus(order.id, 'READY')}
-                                className="px-3 py-1.5 rounded-full bg-[#00E5A3] hover:bg-[#111111] text-[#111111] hover:text-white border border-[#111111] text-xs font-black uppercase tracking-wider transition-all"
+                                className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold transition-all shadow-xs"
                               >
                                 Mark Ready
                               </button>
@@ -1039,7 +1381,7 @@ export default function AdminDashboardPage() {
                             {order.order_status === 'READY' && (
                               <button
                                 onClick={() => handleUpdateOrderStatus(order.id, 'DELIVERED')}
-                                className="px-3 py-1.5 rounded-full bg-[#111111] hover:bg-[#E4007C] text-white text-xs font-black uppercase tracking-wider transition-all"
+                                className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-900 text-white text-xs font-semibold transition-all shadow-xs"
                               >
                                 Mark Delivered
                               </button>
@@ -1057,18 +1399,16 @@ export default function AdminDashboardPage() {
           {/* TAB: CUSTOM CAKE INQUIRIES VIEW */}
           {activeTab === 'custom-cakes' && (
             <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h2 className="text-xl font-black uppercase text-[#111111]">Custom Cake Lab Inquiries ({cakeRequests.length})</h2>
-                  <p className="text-xs text-[#6B7280] font-medium">Bespoke cake requests submitted with photo references and inscriptions.</p>
-                </div>
+              <div>
+                <h2 className="text-lg font-bold text-slate-900">Custom Cake Lab Inquiries ({cakeRequests.length})</h2>
+                <p className="text-xs text-slate-400 font-medium">Bespoke cake requests submitted with photo references and inscriptions.</p>
               </div>
 
               {cakeRequests.length === 0 ? (
-                <div className="bg-white p-12 rounded-2xl text-center border-2 border-[#111111] shadow-[4px_4px_0px_#111111]">
-                  <Cake className="w-12 h-12 text-[#E4007C] mx-auto mb-3" />
-                  <h3 className="text-lg font-black uppercase text-[#111111]">No custom cake requests</h3>
-                  <p className="text-xs text-[#6B7280] font-medium mt-1">
+                <div className="bg-white p-12 rounded-2xl text-center border border-slate-100 shadow-sm">
+                  <Cake className="w-10 h-10 text-slate-300 mx-auto mb-2" />
+                  <h3 className="text-base font-bold text-slate-700">No custom cake requests</h3>
+                  <p className="text-xs text-slate-400 mt-1">
                     Requests submitted through the Custom Cake Studio will appear here.
                   </p>
                 </div>
@@ -1081,27 +1421,27 @@ export default function AdminDashboardPage() {
                     return (
                       <div
                         key={cake.id}
-                        className="bg-white p-5 rounded-2xl border-2 border-[#111111] shadow-[4px_4px_0px_#111111] flex flex-col justify-between"
+                        className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm hover:shadow-md transition-all flex flex-col justify-between"
                       >
                         <div>
-                          <div className="flex items-center justify-between pb-3 border-b-2 border-[#111111]/10">
+                          <div className="flex items-center justify-between pb-3 border-b border-slate-100">
                             <div>
-                              <span className="font-black text-sm uppercase text-[#111111]">
+                              <span className="font-bold text-sm text-slate-900">
                                 #{cake.request_number}
                               </span>
-                              <span className="text-[10px] text-[#6B7280] font-bold block">
+                              <span className="text-[11px] text-slate-400 block">
                                 For: {cake.event_date} ({cake.delivery_slot})
                               </span>
                             </div>
 
-                            <span className="text-[10px] font-black uppercase px-2.5 py-0.5 rounded-full bg-[#FFE600] text-[#111111] border border-[#111111]">
+                            <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200">
                               {cake.status || 'PENDING'}
                             </span>
                           </div>
 
                           <div className="flex gap-4 py-3">
                             {refImage && (
-                              <div className="w-20 h-20 rounded-xl overflow-hidden bg-[#FFF0F6] shrink-0 relative border-2 border-[#111111]">
+                              <div className="w-20 h-20 rounded-xl overflow-hidden bg-slate-100 shrink-0 relative border border-slate-100">
                                 <Image
                                   src={refImage}
                                   alt="Reference Design"
@@ -1111,15 +1451,15 @@ export default function AdminDashboardPage() {
                               </div>
                             )}
 
-                            <div className="text-xs space-y-1 font-medium">
-                              <p className="font-black uppercase text-[#111111]">{cake.customer_name} ({cake.customer_phone})</p>
-                              <p className="text-[#E4007C] font-black uppercase">{cake.cake_type}</p>
-                              <p className="text-[#6B7280]">{cake.sponge_flavor} + {cake.filling_flavor}</p>
-                              <p className="text-[#6B7280] font-bold">
+                            <div className="text-xs space-y-1">
+                              <p className="font-bold text-slate-900">{cake.customer_name} ({cake.customer_phone})</p>
+                              <p className="text-[#E4007C] font-semibold">{cake.cake_type}</p>
+                              <p className="text-slate-500">{cake.sponge_flavor} + {cake.filling_flavor}</p>
+                              <p className="text-slate-400 font-medium">
                                 {cake.tier_count} Tier(s) • Approx. {cake.estimated_weight_kg} kg
                               </p>
                               {cake.message_on_cake && (
-                                <p className="text-[11px] text-[#111111] bg-[#FFE600] border border-[#111111] px-2 py-0.5 rounded-full inline-block font-black mt-1">
+                                <p className="text-[11px] text-slate-800 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-lg inline-block font-medium mt-1">
                                   &ldquo;{cake.message_on_cake}&rdquo;
                                 </p>
                               )}
@@ -1127,16 +1467,16 @@ export default function AdminDashboardPage() {
                           </div>
 
                           {cake.special_instructions && (
-                            <div className="p-2.5 rounded-xl bg-[#FFF0F6] text-[11px] text-[#111111] mb-3 border border-[#E4007C]/20">
+                            <div className="p-2.5 rounded-xl bg-slate-50 text-[11px] text-slate-600 mb-3 border border-slate-100">
                               <strong>Note:</strong> {cake.special_instructions}
                             </div>
                           )}
                         </div>
 
-                        <div className="pt-3 border-t-2 border-[#111111]/10 flex items-center justify-between">
+                        <div className="pt-3 border-t border-slate-100 flex items-center justify-between">
                           <div>
-                            <span className="text-[9px] text-[#6B7280] uppercase font-black block">Quoted</span>
-                            <span className="font-black text-lg text-[#111111]">
+                            <span className="text-[10px] text-slate-400 font-medium block">Quoted Price</span>
+                            <span className="font-bold text-base text-slate-900">
                               ₹{cake.quoted_price || 1200}
                             </span>
                           </div>
@@ -1145,10 +1485,10 @@ export default function AdminDashboardPage() {
                             href={`https://wa.me/${cake.customer_phone.replace(/\D/g, '')}?text=${encodeURIComponent(waReplyText)}`}
                             target="_blank"
                             rel="noreferrer"
-                            className="btn-whatsapp !py-2 !px-3.5 text-xs font-black uppercase"
+                            className="px-3.5 py-1.5 rounded-xl bg-[#25D366] hover:bg-[#20ba59] text-white text-xs font-semibold flex items-center gap-1.5 transition-all shadow-xs"
                           >
                             <MessageCircle className="w-3.5 h-3.5" />
-                            Reply on WhatsApp
+                            Reply WhatsApp
                           </a>
                         </div>
                       </div>
@@ -1161,13 +1501,13 @@ export default function AdminDashboardPage() {
 
           {/* TAB: MENU INVENTORY CRUD VIEW */}
           {activeTab === 'inventory' && (
-            <div className="bg-white rounded-2xl border-2 border-[#111111] p-6 shadow-[5px_5px_0px_#111111] space-y-6">
-              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-4 border-b-2 border-[#111111]/10">
+            <div className="bg-white rounded-2xl border border-slate-100 p-6 shadow-sm space-y-6">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-4 border-b border-slate-100">
                 <div>
-                  <h2 className="text-xl font-black uppercase tracking-tight text-[#111111]">
+                  <h2 className="text-lg font-bold text-slate-900">
                     Bakery Item Management (CRUD)
                   </h2>
-                  <p className="text-xs text-[#6B7280] font-medium mt-0.5">
+                  <p className="text-xs text-slate-400 font-medium mt-0.5">
                     Add new bakery items, update prices in ₹, edit sizes, manage pure veg indicators, or remove items.
                   </p>
                 </div>
@@ -1176,7 +1516,7 @@ export default function AdminDashboardPage() {
                   id="add-new-item-btn"
                   type="button"
                   onClick={handleOpenCreateModal}
-                  className="btn-primary !py-2.5 !px-5 text-xs flex items-center gap-2 cursor-pointer"
+                  className="px-4 py-2.5 rounded-xl bg-[#E4007C] hover:bg-[#D00070] text-white text-xs font-bold flex items-center gap-2 shadow-sm shadow-pink-500/20 transition-all cursor-pointer"
                 >
                   <Plus className="w-4 h-4" />
                   Add New Bakery Item
@@ -1188,21 +1528,21 @@ export default function AdminDashboardPage() {
                 <div className="relative w-full sm:w-80">
                   <input
                     type="text"
-                    placeholder="Search items by name or description..."
+                    placeholder="Search items by name..."
                     value={inventorySearch}
                     onChange={(e) => setInventorySearch(e.target.value)}
-                    className="w-full pl-9 pr-4 py-2 rounded-full bg-[#F4F4F4] border-2 border-[#111111] text-xs font-bold focus:outline-none focus:border-[#E4007C]"
+                    className="w-full pl-9 pr-4 py-2 rounded-xl bg-slate-50 border border-slate-200/80 text-xs font-medium focus:outline-none focus:border-[#E4007C] focus:bg-white transition-all"
                   />
-                  <Search className="w-3.5 h-3.5 text-[#111111] absolute left-3 top-3" />
+                  <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-3" />
                 </div>
 
                 <div className="flex items-center gap-1.5 overflow-x-auto w-full sm:w-auto pb-1">
                   <button
                     onClick={() => setInventoryCategoryFilter('all')}
-                    className={`text-xs px-3 py-1.5 rounded-full font-black uppercase tracking-wider whitespace-nowrap transition-all border-2 ${
+                    className={`text-xs px-3 py-1.5 rounded-full font-semibold whitespace-nowrap transition-all ${
                       inventoryCategoryFilter === 'all'
-                        ? 'bg-[#E4007C] text-white border-[#E4007C]'
-                        : 'bg-white text-[#111111] border-[#111111] hover:bg-[#FFE600]'
+                        ? 'bg-[#E4007C] text-white'
+                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200/60'
                     }`}
                   >
                     All ({products.length})
@@ -1211,10 +1551,10 @@ export default function AdminDashboardPage() {
                     <button
                       key={c.id}
                       onClick={() => setInventoryCategoryFilter(c.id)}
-                      className={`text-xs px-3 py-1.5 rounded-full font-black uppercase tracking-wider whitespace-nowrap transition-all border-2 ${
+                      className={`text-xs px-3 py-1.5 rounded-full font-semibold whitespace-nowrap transition-all ${
                         inventoryCategoryFilter === c.id
-                          ? 'bg-[#E4007C] text-white border-[#E4007C]'
-                          : 'bg-white text-[#111111] border-[#111111] hover:bg-[#FFE600]'
+                          ? 'bg-[#E4007C] text-white'
+                          : 'bg-slate-100 text-slate-600 hover:bg-slate-200/60'
                       }`}
                     >
                       {c.name}
@@ -1224,9 +1564,9 @@ export default function AdminDashboardPage() {
               </div>
 
               {/* Products List Cards */}
-              <div className="divide-y divide-[#111111]/10">
+              <div className="divide-y divide-slate-100">
                 {filteredInventoryProducts.length === 0 ? (
-                  <div className="py-12 text-center text-xs text-[#6B7280] font-bold">
+                  <div className="py-12 text-center text-xs text-slate-400 font-medium">
                     No bakery items found matching your filter. Click &ldquo;Add New Bakery Item&rdquo; above!
                   </div>
                 ) : (
@@ -1237,10 +1577,10 @@ export default function AdminDashboardPage() {
                     return (
                       <div
                         key={prod.id}
-                        className="py-4 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 hover:bg-[#FFF0F6]/40 p-2 rounded-xl transition-colors"
+                        className="py-4 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 hover:bg-slate-50/60 p-2 rounded-xl transition-colors"
                       >
                         <div className="flex items-start gap-3.5 flex-1 min-w-0">
-                          <div className="w-16 h-16 rounded-xl bg-[#FFF0F6] overflow-hidden relative shrink-0 border-2 border-[#111111]">
+                          <div className="w-14 h-14 rounded-xl bg-slate-100 overflow-hidden relative shrink-0 border border-slate-100">
                             {prod.images?.[0] ? (
                               <Image
                                 src={prod.images[0]}
@@ -1250,12 +1590,12 @@ export default function AdminDashboardPage() {
                               />
                             ) : (
                               <div className="w-full h-full flex items-center justify-center text-[#E4007C]">
-                                <ChefHat className="w-6 h-6" />
+                                <ChefHat className="w-5 h-5" />
                               </div>
                             )}
                           </div>
 
-                          <div className="min-w-0 space-y-1">
+                          <div className="min-w-0 space-y-0.5">
                             <div className="flex items-center gap-2 flex-wrap">
                               {prod.is_eggless && (
                                 <span
@@ -1265,31 +1605,31 @@ export default function AdminDashboardPage() {
                                   <span className="w-1.5 h-1.5 rounded-full bg-[#15803D]" />
                                 </span>
                               )}
-                              <h3 className="text-sm font-black uppercase text-[#111111] truncate">
+                              <h3 className="text-sm font-bold text-slate-900 truncate">
                                 {prod.name}
                               </h3>
                               {cat && (
-                                <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-full bg-[#FFE600] text-[#111111] border border-[#111111]">
+                                <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">
                                   {cat.name}
                                 </span>
                               )}
                               {prod.is_featured && (
-                                <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-full bg-[#E4007C] text-white flex items-center gap-0.5">
+                                <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-pink-100 text-[#E4007C] flex items-center gap-0.5">
                                   <Sparkles className="w-2.5 h-2.5" /> Bestseller
                                 </span>
                               )}
                             </div>
 
-                            <p className="text-xs text-[#6B7280] font-medium line-clamp-1 max-w-lg">
+                            <p className="text-xs text-slate-500 font-normal line-clamp-1 max-w-lg">
                               {prod.description || 'No description provided.'}
                             </p>
 
-                            <div className="flex items-center gap-3 text-xs">
-                              <span className="font-black text-[#111111] text-sm">
+                            <div className="flex items-center gap-2 text-xs pt-0.5">
+                              <span className="font-bold text-slate-900">
                                 ₹{Math.round(Number(prod.base_price))}
                               </span>
                               {sizes.length > 0 && (
-                                <span className="text-[11px] text-[#6B7280] font-bold">
+                                <span className="text-[11px] text-slate-400">
                                   ({sizes.length} size{sizes.length > 1 ? 's' : ''}: {sizes.map((s) => s.label).join(', ')})
                                 </span>
                               )}
@@ -1301,10 +1641,10 @@ export default function AdminDashboardPage() {
                         <div className="flex items-center gap-2 self-end md:self-center shrink-0">
                           <button
                             onClick={() => handleToggleProductStock(prod.id, prod.is_available ?? true)}
-                            className={`px-3 py-1.5 rounded-full text-xs font-black uppercase tracking-wider transition-all border ${
+                            className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-all border ${
                               prod.is_available
-                                ? 'bg-[#DCFCE7] text-[#15803D] border-[#15803D]'
-                                : 'bg-red-100 text-red-700 border-red-300'
+                                ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                : 'bg-red-50 text-red-700 border-red-200'
                             }`}
                           >
                             {prod.is_available ? '● In Stock' : '○ Sold Out'}
@@ -1312,7 +1652,7 @@ export default function AdminDashboardPage() {
 
                           <button
                             onClick={() => handleOpenEditModal(prod)}
-                            className="p-2 rounded-xl bg-white hover:bg-[#FFE600] text-[#111111] transition-colors border-2 border-[#111111]"
+                            className="p-2 rounded-xl bg-slate-50 hover:bg-slate-100 text-slate-700 transition-colors border border-slate-200/80 cursor-pointer"
                             title="Edit Item Details"
                           >
                             <Edit2 className="w-3.5 h-3.5" />
@@ -1320,7 +1660,7 @@ export default function AdminDashboardPage() {
 
                           <button
                             onClick={() => handleDeleteProduct(prod)}
-                            className="p-2 rounded-xl bg-red-50 hover:bg-red-100 text-red-600 transition-colors border border-red-200"
+                            className="p-2 rounded-xl bg-red-50 hover:bg-red-100 text-red-600 transition-colors border border-red-200 cursor-pointer"
                             title="Delete Item"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
@@ -1336,19 +1676,19 @@ export default function AdminDashboardPage() {
 
           {/* TAB: CUSTOMERS CRM VIEW */}
           {activeTab === 'crm' && (
-            <div className="bg-white rounded-2xl border-2 border-[#111111] p-6 shadow-[5px_5px_0px_#111111] space-y-4">
-              <div className="flex items-center justify-between pb-4 border-b-2 border-[#111111]/10">
+            <div className="bg-white rounded-2xl border border-slate-100 p-6 shadow-sm space-y-4">
+              <div className="flex items-center justify-between pb-4 border-b border-slate-100">
                 <div>
-                  <h2 className="text-xl font-black uppercase tracking-tight text-[#111111]">
+                  <h2 className="text-lg font-bold text-slate-900">
                     Customers &amp; Loyalty CRM
                   </h2>
-                  <p className="text-xs text-[#6B7280] font-medium mt-0.5">
+                  <p className="text-xs text-slate-400 font-medium mt-0.5">
                     Customer contact registry, order frequency, and lifetime bakery spend.
                   </p>
                 </div>
                 <button
                   onClick={exportCustomersCSV}
-                  className="btn-primary !py-2 !px-4 text-xs font-black flex items-center gap-1.5"
+                  className="px-3.5 py-2 rounded-xl bg-[#E4007C] hover:bg-[#D00070] text-white text-xs font-semibold flex items-center gap-1.5 transition-all shadow-xs"
                 >
                   <Download className="w-3.5 h-3.5" />
                   <span>Export CRM CSV</span>
@@ -1356,11 +1696,11 @@ export default function AdminDashboardPage() {
               </div>
 
               {orders.length === 0 ? (
-                <div className="py-12 text-center text-xs text-[#6B7280] font-bold">
+                <div className="py-12 text-center text-xs text-slate-400 font-medium">
                   No customer records available yet.
                 </div>
               ) : (
-                <div className="divide-y divide-[#111111]/10">
+                <div className="divide-y divide-slate-100">
                   {Array.from(
                     orders.reduce((acc, o) => {
                       const phone = o.customer_phone;
@@ -1380,17 +1720,17 @@ export default function AdminDashboardPage() {
                   ).map((cust, idx) => (
                     <div key={idx} className="py-3 flex items-center justify-between gap-4">
                       <div>
-                        <p className="font-black text-sm uppercase text-[#111111]">{cust.name}</p>
-                        <p className="text-xs text-[#6B7280] font-medium flex items-center gap-2">
+                        <p className="font-bold text-sm text-slate-900">{cust.name}</p>
+                        <p className="text-xs text-slate-400 font-medium flex items-center gap-2">
                           <span>{cust.phone}</span>
                           {cust.email && <span>• {cust.email}</span>}
                         </p>
                       </div>
                       <div className="text-right">
-                        <span className="font-black text-sm text-[#E4007C] block">
+                        <span className="font-bold text-sm text-[#E4007C] block">
                           ₹{Math.round(cust.totalSpent).toLocaleString('en-IN')}
                         </span>
-                        <span className="text-[10px] font-bold text-[#6B7280]">
+                        <span className="text-[11px] text-slate-400">
                           {cust.ordersCount} {cust.ordersCount === 1 ? 'Order' : 'Orders'}
                         </span>
                       </div>
@@ -1402,33 +1742,33 @@ export default function AdminDashboardPage() {
           )}
         </div>
 
-        {/* ITEM CREATE / EDIT MODAL */}
+        {/* ITEM CREATE / EDIT MODAL (Clean, modern dialog) */}
         {isItemModalOpen && (
           <div
             id="item-crud-modal"
-            className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs overflow-y-auto"
+            className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-xs overflow-y-auto"
           >
-            <div className="bg-white rounded-2xl border-2 border-[#111111] shadow-[8px_8px_0px_#111111] max-w-2xl w-full p-6 md:p-8 my-8 relative">
+            <div className="bg-white rounded-3xl border border-slate-100 shadow-2xl max-w-2xl w-full p-6 md:p-8 my-8 relative animate-in fade-in zoom-in-95 duration-200">
               <button
                 type="button"
                 onClick={() => setIsItemModalOpen(false)}
-                className="absolute top-5 right-5 p-2 rounded-full bg-[#F4F4F4] text-[#111111] hover:bg-[#E4007C] hover:text-white transition-colors border border-[#111111]"
+                className="absolute top-5 right-5 p-2 rounded-full bg-slate-100 text-slate-500 hover:bg-slate-200 transition-colors cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>
 
-              <div className="flex items-center gap-2 mb-2 text-xs font-black uppercase tracking-wider text-[#E4007C]">
+              <div className="flex items-center gap-2 mb-1 text-xs font-bold uppercase tracking-wider text-[#E4007C]">
                 <Sparkles className="w-4 h-4" />
-                {editingProduct ? 'UPDATE MENU ITEM' : 'CREATE NEW MENU ITEM'}
+                {editingProduct ? 'Update Menu Item' : 'Create New Menu Item'}
               </div>
-              <h2 className="text-2xl font-black uppercase tracking-tight text-[#111111] mb-6">
+              <h2 className="text-xl font-bold text-slate-900 mb-6">
                 {editingProduct ? `Edit: ${editingProduct.name}` : 'Add New Bakery Bake'}
               </h2>
 
-              <form onSubmit={handleSaveProduct} className="space-y-5">
+              <form onSubmit={handleSaveProduct} className="space-y-4">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-[11px] font-black uppercase tracking-wider text-[#111111] mb-1.5">
+                    <label className="block text-xs font-semibold text-slate-700 mb-1.5">
                       Item Name *
                     </label>
                     <input
@@ -1437,18 +1777,18 @@ export default function AdminDashboardPage() {
                       placeholder="e.g. Royal Rasmalai Cake"
                       value={formName}
                       onChange={(e) => setFormName(e.target.value)}
-                      className="w-full text-xs font-bold p-3 rounded-xl bg-[#F4F4F4] border-2 border-[#111111] focus:outline-none focus:border-[#E4007C]"
+                      className="w-full text-xs font-medium p-3 rounded-xl bg-slate-50 border border-slate-200 focus:outline-none focus:border-[#E4007C] focus:bg-white transition-all"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-[11px] font-black uppercase tracking-wider text-[#111111] mb-1.5">
+                    <label className="block text-xs font-semibold text-slate-700 mb-1.5">
                       Category *
                     </label>
                     <select
                       value={formCategoryId}
                       onChange={(e) => setFormCategoryId(e.target.value)}
-                      className="w-full text-xs font-bold p-3 rounded-xl bg-[#F4F4F4] border-2 border-[#111111] focus:outline-none focus:border-[#E4007C]"
+                      className="w-full text-xs font-medium p-3 rounded-xl bg-slate-50 border border-slate-200 focus:outline-none focus:border-[#E4007C] focus:bg-white transition-all"
                     >
                       {categories.map((c) => (
                         <option key={c.id} value={c.id}>
@@ -1461,7 +1801,7 @@ export default function AdminDashboardPage() {
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-[11px] font-black uppercase tracking-wider text-[#111111] mb-1.5">
+                    <label className="block text-xs font-semibold text-slate-700 mb-1.5">
                       Base Price (₹ INR) *
                     </label>
                     <input
@@ -1471,16 +1811,16 @@ export default function AdminDashboardPage() {
                       placeholder="499"
                       value={formBasePrice}
                       onChange={(e) => setFormBasePrice(e.target.value ? Number(e.target.value) : '')}
-                      className="w-full text-xs font-bold p-3 rounded-xl bg-[#F4F4F4] border-2 border-[#111111] focus:outline-none focus:border-[#E4007C]"
+                      className="w-full text-xs font-medium p-3 rounded-xl bg-slate-50 border border-slate-200 focus:outline-none focus:border-[#E4007C] focus:bg-white transition-all"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-[11px] font-black uppercase tracking-wider text-[#111111] mb-1.5">
+                    <label className="block text-xs font-semibold text-slate-700 mb-1.5">
                       Dietary Type
                     </label>
                     <div className="flex items-center gap-4 pt-2">
-                      <label className="flex items-center gap-1.5 text-xs font-black text-[#15803D] cursor-pointer">
+                      <label className="flex items-center gap-1.5 text-xs font-semibold text-[#15803D] cursor-pointer">
                         <input
                           type="checkbox"
                           checked={formIsEggless}
@@ -1489,7 +1829,7 @@ export default function AdminDashboardPage() {
                         />
                         100% Pure Veg (Eggless)
                       </label>
-                      <label className="flex items-center gap-1.5 text-xs font-semibold text-[#111111] cursor-pointer">
+                      <label className="flex items-center gap-1.5 text-xs font-medium text-slate-700 cursor-pointer">
                         <input
                           type="checkbox"
                           checked={formIsVegan}
@@ -1498,7 +1838,7 @@ export default function AdminDashboardPage() {
                         />
                         Vegan
                       </label>
-                      <label className="flex items-center gap-1.5 text-xs font-semibold text-[#111111] cursor-pointer">
+                      <label className="flex items-center gap-1.5 text-xs font-medium text-slate-700 cursor-pointer">
                         <input
                           type="checkbox"
                           checked={formIsGlutenFree}
@@ -1512,7 +1852,7 @@ export default function AdminDashboardPage() {
                 </div>
 
                 <div>
-                  <label className="block text-[11px] font-black uppercase tracking-wider text-[#111111] mb-1.5">
+                  <label className="block text-xs font-semibold text-slate-700 mb-1.5">
                     Description &amp; Ingredients
                   </label>
                   <textarea
@@ -1520,12 +1860,12 @@ export default function AdminDashboardPage() {
                     placeholder="Rich cardamom milk sponge soaked in rabdi cream, topped with Bengali rasmalai..."
                     value={formDescription}
                     onChange={(e) => setFormDescription(e.target.value)}
-                    className="w-full text-xs font-medium p-3 rounded-xl bg-[#F4F4F4] border-2 border-[#111111] focus:outline-none focus:border-[#E4007C]"
+                    className="w-full text-xs font-normal p-3 rounded-xl bg-slate-50 border border-slate-200 focus:outline-none focus:border-[#E4007C] focus:bg-white transition-all"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-[11px] font-black uppercase tracking-wider text-[#111111] mb-1.5">
+                  <label className="block text-xs font-semibold text-slate-700 mb-1.5">
                     Product Image URL
                   </label>
                   <input
@@ -1533,21 +1873,21 @@ export default function AdminDashboardPage() {
                     placeholder="https://images.unsplash.com/..."
                     value={formImageUrl}
                     onChange={(e) => setFormImageUrl(e.target.value)}
-                    className="w-full text-xs font-mono p-3 rounded-xl bg-[#F4F4F4] border-2 border-[#111111] focus:outline-none focus:border-[#E4007C] mb-2"
+                    className="w-full text-xs font-mono p-3 rounded-xl bg-slate-50 border border-slate-200 focus:outline-none focus:border-[#E4007C] focus:bg-white transition-all mb-2"
                   />
-                  <div className="flex items-center gap-2 overflow-x-auto pb-1">
-                    <span className="text-[10px] text-[#6B7280] uppercase font-black shrink-0">
-                      Quick Presets:
+                  <div className="flex items-center gap-1.5 overflow-x-auto pb-1">
+                    <span className="text-[10px] text-slate-400 font-bold uppercase shrink-0">
+                      Presets:
                     </span>
                     {IMAGE_PRESETS.map((preset, idx) => (
                       <button
                         key={idx}
                         type="button"
                         onClick={() => setFormImageUrl(preset.url)}
-                        className={`text-[10px] font-bold px-2.5 py-1 rounded-full border shrink-0 transition-colors ${
+                        className={`text-[10px] font-medium px-2.5 py-1 rounded-full border shrink-0 transition-colors cursor-pointer ${
                           formImageUrl === preset.url
                             ? 'bg-[#E4007C] text-white border-[#E4007C]'
-                            : 'bg-white text-[#111111] hover:bg-[#FFE600] border-[#111111]'
+                            : 'bg-white text-slate-600 hover:bg-slate-50 border-slate-200'
                         }`}
                       >
                         {preset.label}
@@ -1558,7 +1898,7 @@ export default function AdminDashboardPage() {
 
                 <div>
                   <div className="flex items-center justify-between mb-2">
-                    <label className="block text-[11px] font-black uppercase tracking-wider text-[#111111]">
+                    <label className="block text-xs font-semibold text-slate-700">
                       Available Sizes &amp; Extra Price (₹)
                     </label>
                     <button
@@ -1566,10 +1906,10 @@ export default function AdminDashboardPage() {
                       onClick={() =>
                         setFormSizes([...formSizes, { label: '1.5 kg', extra_price: 650 }])
                       }
-                      className="text-xs font-black uppercase text-[#E4007C] hover:underline flex items-center gap-1"
+                      className="text-xs font-semibold text-[#E4007C] hover:text-[#D00070] flex items-center gap-1 cursor-pointer"
                     >
                       <Plus className="w-3 h-3" />
-                      Add Size Option
+                      Add Size
                     </button>
                   </div>
 
@@ -1585,10 +1925,10 @@ export default function AdminDashboardPage() {
                             updated[index].label = e.target.value;
                             setFormSizes(updated);
                           }}
-                          className="flex-1 text-xs font-bold p-2.5 rounded-xl bg-[#F4F4F4] border-2 border-[#111111]"
+                          className="flex-1 text-xs font-medium p-2.5 rounded-xl bg-slate-50 border border-slate-200"
                         />
                         <div className="flex items-center gap-1">
-                          <span className="text-xs text-[#111111] font-black">+₹</span>
+                          <span className="text-xs text-slate-500 font-medium">+₹</span>
                           <input
                             type="number"
                             min={0}
@@ -1599,7 +1939,7 @@ export default function AdminDashboardPage() {
                               updated[index].extra_price = Number(e.target.value);
                               setFormSizes(updated);
                             }}
-                            className="w-24 text-xs font-bold p-2.5 rounded-xl bg-[#F4F4F4] border-2 border-[#111111]"
+                            className="w-24 text-xs font-medium p-2.5 rounded-xl bg-slate-50 border border-slate-200"
                           />
                         </div>
                         {formSizes.length > 1 && (
@@ -1608,7 +1948,7 @@ export default function AdminDashboardPage() {
                             onClick={() => {
                               setFormSizes(formSizes.filter((_, i) => i !== index));
                             }}
-                            className="p-2 text-red-500 hover:text-red-700 font-bold"
+                            className="p-2 text-slate-400 hover:text-red-500 cursor-pointer"
                             title="Remove Size"
                           >
                             <X className="w-4 h-4" />
@@ -1619,48 +1959,48 @@ export default function AdminDashboardPage() {
                   </div>
                 </div>
 
-                <div className="flex items-center gap-6 pt-2 border-t-2 border-[#111111]/10">
-                  <label className="flex items-center gap-2 text-xs font-black uppercase text-[#111111] cursor-pointer">
+                <div className="flex items-center gap-6 pt-2 border-t border-slate-100">
+                  <label className="flex items-center gap-2 text-xs font-semibold text-slate-700 cursor-pointer">
                     <input
                       type="checkbox"
                       checked={formIsAvailable}
                       onChange={(e) => setFormIsAvailable(e.target.checked)}
-                      className="w-4 h-4 rounded-sm text-[#15803D]"
+                      className="w-4 h-4 rounded-sm text-emerald-600 focus:ring-emerald-500"
                     />
                     In Stock (Ready to Bake)
                   </label>
 
-                  <label className="flex items-center gap-2 text-xs font-black uppercase text-[#E4007C] cursor-pointer">
+                  <label className="flex items-center gap-2 text-xs font-semibold text-[#E4007C] cursor-pointer">
                     <input
                       type="checkbox"
                       checked={formIsFeatured}
                       onChange={(e) => setFormIsFeatured(e.target.checked)}
-                      className="w-4 h-4 rounded-sm text-[#E4007C]"
+                      className="w-4 h-4 rounded-sm text-[#E4007C] focus:ring-pink-500"
                     />
                     Feature on Homepage (Bestseller)
                   </label>
                 </div>
 
-                <div className="flex items-center justify-end gap-3 pt-4 border-t-2 border-[#111111]/10">
+                <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-100">
                   <button
                     type="button"
                     onClick={() => setIsItemModalOpen(false)}
-                    className="btn-secondary !py-2.5 !px-5 text-xs font-black"
+                    className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold transition-colors cursor-pointer"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
                     disabled={isSavingProduct}
-                    className="btn-primary !py-2.5 !px-6 text-xs font-black flex items-center gap-2"
+                    className="px-5 py-2 rounded-xl bg-[#E4007C] hover:bg-[#D00070] text-white text-xs font-bold flex items-center gap-2 shadow-sm shadow-pink-500/20 transition-all cursor-pointer"
                   >
                     {isSavingProduct ? (
                       <>
                         <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                        Saving to Bakery Menu...
+                        Saving...
                       </>
                     ) : (
-                      <>{editingProduct ? 'Update Item' : 'Add Item to Menu'}</>
+                      <>{editingProduct ? 'Update Item' : 'Add Item'}</>
                     )}
                   </button>
                 </div>

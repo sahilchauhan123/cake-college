@@ -1,9 +1,18 @@
+'use client';
+
 import React from 'react';
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import { Phone, MapPin, Clock, Heart, Sparkles, Send } from 'lucide-react';
 import { BAKERY_WHATSAPP_NUMBER, getWhatsAppUrl } from '../lib/whatsapp';
 
 export default function Footer() {
+  const pathname = usePathname();
+
+  if (pathname?.startsWith('/admin')) {
+    return null;
+  }
+
   return (
     <footer className="bg-[#111111] text-[#FAFAFA] pt-16 pb-24 md:pb-12 border-t-2 border-[#111111]">
       <div className="container-custom">

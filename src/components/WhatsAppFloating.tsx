@@ -1,13 +1,20 @@
 'use client';
 
 import React from 'react';
+import { usePathname } from 'next/navigation';
 import { MessageCircle } from 'lucide-react';
 import { getWhatsAppUrl } from '../lib/whatsapp';
 
 export default function WhatsAppFloating() {
+  const pathname = usePathname();
+
   const whatsappUrl = getWhatsAppUrl(
     'Hi Sweet Delight! I would like to ask a question or place a bakery order.'
   );
+
+  if (pathname?.startsWith('/admin')) {
+    return null;
+  }
 
   return (
     <aside
