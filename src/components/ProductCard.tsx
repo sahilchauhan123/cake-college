@@ -73,7 +73,7 @@ export default function ProductCard({ product }: { product: Product }) {
       {/* Card Footer: Starting Price & View Details Link */}
       <div className="p-5 pt-0 flex items-center justify-between border-t border-[#111111]/10 mt-2 pt-4">
         <div>
-          <span className="text-[9px] uppercase font-black tracking-widest text-[#6B7280] block">Starting from</span>
+          <span className="text-[10px] uppercase font-bold tracking-wider text-[#6B7280] block">From</span>
           <span className="text-lg sm:text-xl font-black text-[#111111] tracking-tight">
             ₹{Math.round(Number(product.base_price))}
           </span>
@@ -81,9 +81,9 @@ export default function ProductCard({ product }: { product: Product }) {
 
         <Link
           href={productUrl}
-          className="btn-primary !py-2.5 !px-4 text-xs font-black uppercase tracking-wider flex items-center gap-1.5 shadow-sm group-hover:bg-[#111111] transition-all"
+          className="btn-primary !py-2 !px-4 text-xs font-black uppercase tracking-wider flex items-center gap-1.5 shadow-sm group-hover:bg-[#111111] transition-all"
         >
-          <span>View Details</span>
+          <span>View</span>
           <ArrowRight className="w-3.5 h-3.5" />
         </Link>
       </div>

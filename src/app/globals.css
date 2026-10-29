@@ -121,120 +121,122 @@ button {
   box-shadow: 4px 4px 0px #111111;
 }
 
-/* Milk Bar Signature Buttons */
-.btn-primary {
-  background-color: #E4007C;
-  color: #FFFFFF;
-  font-weight: 800;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  padding: 12px 26px;
-  border-radius: var(--radius-full);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  box-shadow: 0 4px 14px rgba(228, 0, 124, 0.28);
-  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-  border: 2px solid #E4007C;
-}
+@layer components {
+  /* Milk Bar Signature Buttons */
+  .btn-primary {
+    background-color: #E4007C;
+    color: #FFFFFF;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    padding: 12px 26px;
+    border-radius: var(--radius-full);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    box-shadow: 0 4px 14px rgba(228, 0, 124, 0.28);
+    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    border: 2px solid #E4007C;
+  }
 
-.btn-primary:hover {
-  background-color: #111111;
-  border-color: #111111;
-  color: #FFFFFF;
-  transform: translateY(-2px);
-  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.2);
-}
+  .btn-primary:hover {
+    background-color: #111111;
+    border-color: #111111;
+    color: #FFFFFF;
+    transform: translateY(-2px);
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.2);
+  }
 
-.btn-secondary {
-  background-color: #FFFFFF;
-  color: #111111;
-  border: 2px solid #111111;
-  font-weight: 800;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  padding: 11px 24px;
-  border-radius: var(--radius-full);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  transition: all 0.2s ease;
-}
+  .btn-secondary {
+    background-color: #FFFFFF;
+    color: #111111;
+    border: 2px solid #111111;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    padding: 11px 24px;
+    border-radius: var(--radius-full);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    transition: all 0.2s ease;
+  }
 
-.btn-secondary:hover {
-  background-color: #E4007C;
-  border-color: #E4007C;
-  color: #FFFFFF;
-  transform: translateY(-2px);
-}
+  .btn-secondary:hover {
+    background-color: #E4007C;
+    border-color: #E4007C;
+    color: #FFFFFF;
+    transform: translateY(-2px);
+  }
 
-.btn-gold, .btn-yellow {
-  background-color: #FFE600;
-  color: #111111;
-  font-weight: 800;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  padding: 12px 26px;
-  border-radius: var(--radius-full);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  border: 2px solid #111111;
-  box-shadow: 3px 3px 0px #111111;
-  transition: all 0.2s ease;
-}
+  .btn-gold, .btn-yellow {
+    background-color: #FFE600;
+    color: #111111;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    padding: 12px 26px;
+    border-radius: var(--radius-full);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    border: 2px solid #111111;
+    box-shadow: 3px 3px 0px #111111;
+    transition: all 0.2s ease;
+  }
 
-.btn-gold:hover, .btn-yellow:hover {
-  background-color: #E4007C;
-  color: #FFFFFF;
-  border-color: #111111;
-  transform: translateY(-2px);
-  box-shadow: 4px 4px 0px #111111;
-}
+  .btn-gold:hover, .btn-yellow:hover {
+    background-color: #E4007C;
+    color: #FFFFFF;
+    border-color: #111111;
+    transform: translateY(-2px);
+    box-shadow: 4px 4px 0px #111111;
+  }
 
-.btn-black {
-  background-color: #111111;
-  color: #FFFFFF;
-  font-weight: 800;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  padding: 12px 26px;
-  border-radius: var(--radius-full);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  transition: all 0.2s ease;
-}
+  .btn-black {
+    background-color: #111111;
+    color: #FFFFFF;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    padding: 12px 26px;
+    border-radius: var(--radius-full);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    transition: all 0.2s ease;
+  }
 
-.btn-black:hover {
-  background-color: #E4007C;
-  transform: translateY(-2px);
-}
+  .btn-black:hover {
+    background-color: #E4007C;
+    transform: translateY(-2px);
+  }
 
-.btn-whatsapp {
-  background-color: #111111;
-  color: #00E5A3;
-  font-weight: 800;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  padding: 12px 22px;
-  border-radius: var(--radius-full);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  border: 2px solid #00E5A3;
-  transition: all 0.2s ease;
-}
+  .btn-whatsapp {
+    background-color: #111111;
+    color: #00E5A3;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    padding: 12px 22px;
+    border-radius: var(--radius-full);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    border: 2px solid #00E5A3;
+    transition: all 0.2s ease;
+  }
 
-.btn-whatsapp:hover {
-  background-color: #00E5A3;
-  color: #111111;
-  transform: translateY(-2px);
+  .btn-whatsapp:hover {
+    background-color: #00E5A3;
+    color: #111111;
+    transform: translateY(-2px);
+  }
 }
 
 /* Dietary & Milk Bar Badges */

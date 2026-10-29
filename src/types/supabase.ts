@@ -315,3 +315,15 @@ export type Order = Database['public']['Tables']['orders']['Row']
 export type OrderItem = Database['public']['Tables']['order_items']['Row']
 export type CustomCakeRequest = Database['public']['Tables']['custom_cake_requests']['Row']
 export type Profile = Database['public']['Tables']['profiles']['Row']
+
+export interface CakeStudioOption {
+  id: string;
+  type: 'style' | 'sponge' | 'filling';
+  name: string;
+  description: string | null;
+  base_price: number;
+  is_eggless: boolean;
+  display_order: number;
+  is_active: boolean;
+  created_at: string | null;
+}

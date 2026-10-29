@@ -38,7 +38,7 @@ export default function MobileBottomBar() {
             <Cake className="w-5 h-5 text-[#E4007C]" />
             <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-[#E4007C]" />
           </div>
-          <span>Cake Lab</span>
+          <span>Custom</span>
         </Link>
 
         <button

@@ -2,6 +2,7 @@
 
 import React from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import { Phone, MapPin, Clock, Heart, Sparkles, Send } from 'lucide-react';
 import { BAKERY_WHATSAPP_NUMBER, getWhatsAppUrl } from '../lib/whatsapp';
@@ -21,7 +22,7 @@ export default function Footer() {
           <div>
             <span className="text-[10px] font-black uppercase tracking-widest text-[#E4007C] flex items-center gap-1.5 mb-1">
               <Sparkles className="w-3.5 h-3.5" />
-              JOIN THE DESSERT CLUB
+              JOIN OUR NEWSLETTER
             </span>
             <h3 className="text-2xl md:text-3xl font-black uppercase tracking-tight text-[#111111]">
               GET 10% OFF YOUR FIRST ORDER
@@ -50,15 +51,21 @@ export default function Footer() {
           {/* Brand Info */}
           <div>
             <div className="flex items-center gap-3 mb-4">
-              <div className="w-10 h-10 rounded-full bg-[#E4007C] flex items-center justify-center text-white font-black text-lg">
-                SD
+              <div className="w-11 h-11 rounded-full overflow-hidden border-2 border-white/20 bg-white flex items-center justify-center shrink-0 p-1">
+                <Image
+                  src="/logo-mark.png"
+                  alt="Butter & Crumb Logo"
+                  width={44}
+                  height={44}
+                  className="object-contain w-full h-full"
+                />
               </div>
               <span className="font-extrabold text-2xl tracking-tighter text-white uppercase">
-                Sweet Delight<span className="text-[#E4007C]">.</span>
+                Butter &amp; Crumb<span className="text-[#E4007C]">.</span>
               </span>
             </div>
             <p className="text-xs text-[#A1A1AA] leading-relaxed mb-6 font-medium">
-              A playful dessert lab crafting iconic celebration cakes, Bombay mawa loaves, 100% pure eggless bakes, and sourdough daily.
+              Artisan bakery crafting fresh celebration cakes, pastries, eggless treats, and sourdough breads daily.
             </p>
             <div className="flex items-center gap-3">
               <a
@@ -107,7 +114,7 @@ export default function Footer() {
               </li>
               <li>
                 <Link href="/custom-cake" className="text-[#FFE600] hover:text-[#E4007C] transition-colors">
-                  ★ Custom Celebration Cake Lab
+                  ★ Custom Cakes
                 </Link>
               </li>
               <li>
@@ -163,7 +170,7 @@ export default function Footer() {
               </div>
               <div className="pt-2">
                 <a
-                  href={getWhatsAppUrl('Namaste! I would like to place an order with Sweet Delight Bakery.')}
+                  href={getWhatsAppUrl('Namaste! I would like to place an order with Butter & Crumb Bakery.')}
                   target="_blank"
                   rel="noreferrer"
                   className="btn-whatsapp !py-2 !px-4 text-xs w-full text-center"
@@ -178,7 +185,7 @@ export default function Footer() {
 
         {/* Bottom Bar */}
         <div className="pt-8 flex flex-col md:flex-row items-center justify-between text-xs text-[#71717A] gap-4">
-          <p>© {new Date().getFullYear()} Sweet Delight Dessert Lab &amp; Bakery. All rights reserved.</p>
+          <p>© {new Date().getFullYear()} Butter &amp; Crumb Bakery. All rights reserved.</p>
           <div className="flex items-center gap-4">
             <p className="flex items-center gap-1 font-semibold">
               Baked with <Heart className="w-3.5 h-3.5 text-[#E4007C] fill-current" /> in Mumbai

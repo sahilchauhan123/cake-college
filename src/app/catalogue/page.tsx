@@ -85,13 +85,13 @@ function CatalogueContent() {
         <div className="text-center max-w-2xl mx-auto mb-10">
           <div className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full bg-[#FFE600] text-[#111111] border border-[#111111] text-[10px] font-black uppercase tracking-wider mb-2 shadow-[2px_2px_0px_#111111]">
             <Sparkles className="w-3.5 h-3.5 text-[#E4007C]" />
-            FRESHLY BAKED EVERY MORNING AT 5:00 AM
+            BAKED FRESH DAILY
           </div>
           <h1 className="text-4xl md:text-5xl font-black uppercase tracking-tight text-[#111111]">
-            THE BAKERY CATALOGUE
+            BAKERY MENU
           </h1>
           <p className="text-xs md:text-sm text-[#6B7280] font-medium mt-2 max-w-xl mx-auto">
-            Explore our handcrafted celebration cakes, crisp viennoiserie, rustic slow-fermented breads, and savoury bakes.
+            Explore our celebration cakes, fresh pastries, artisan breads, and savory bakes.
           </p>
         </div>
 
@@ -102,7 +102,7 @@ function CatalogueContent() {
             <div className="relative w-full md:w-96">
               <input
                 type="text"
-                placeholder="Search cakes, croissants, sourdough..."
+                placeholder="Search cakes, snacks, breads..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="w-full pl-10 pr-4 py-2.5 rounded-full bg-white border-2 border-[#111111] text-xs font-bold text-[#111111] focus:outline-none focus:border-[#E4007C]"
@@ -119,7 +119,7 @@ function CatalogueContent() {
                 onChange={(e) => setSortBy(e.target.value as any)}
                 className="text-xs font-black uppercase tracking-wider px-3.5 py-2 rounded-xl bg-white border-2 border-[#111111] text-[#111111] focus:outline-none"
               >
-                <option value="featured">Featured &amp; Bestsellers</option>
+                <option value="featured">Featured</option>
                 <option value="price-asc">Price: Low to High</option>
                 <option value="price-desc">Price: High to Low</option>
               </select>
@@ -136,7 +136,7 @@ function CatalogueContent() {
                   : 'bg-white text-[#111111] border-[#111111] hover:bg-[#FFE600]'
               }`}
             >
-              All Items ({products.length})
+              All ({products.length})
             </button>
             {categories.map((cat) => (
               <button
@@ -156,7 +156,7 @@ function CatalogueContent() {
           {/* Dietary Toggles */}
           <div className="flex flex-wrap items-center gap-2 pt-1">
             <span className="text-[10px] font-black text-[#111111] uppercase tracking-wider mr-1">
-              Dietary Preference:
+              Dietary:
             </span>
             <button
               onClick={() => setFilterEggless(!filterEggless)}

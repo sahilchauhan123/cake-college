@@ -8,22 +8,26 @@ import WhatsAppFloating from '../components/WhatsAppFloating';
 import MobileBottomBar from '../components/MobileBottomBar';
 
 export const metadata: Metadata = {
-  title: 'Sweet Delight Artisan Bakery | Handcrafted Cakes & Pastries',
+  title: 'Butter & Crumb Artisan Bakery | Handcrafted Cakes & Treats',
   description:
-    'Order fresh artisan sourdough, delicate French pastries, and design bespoke multi-tier celebration cakes with online booking, doorstep delivery, and direct WhatsApp ordering.',
+    'Order fresh celebration cakes, decadent chocolate truffles, eggless treats, and artisan sourdough. Baked fresh daily with pure butter.',
+  icons: {
+    icon: '/logo.png',
+  },
   keywords: [
     'bakery',
+    'Butter & Crumb',
     'artisan cakes',
     'custom cakes',
     'eggless cake',
     'croissants',
     'sourdough',
-    'online cake booking',
+    'online cake delivery',
     'WhatsApp bakery order',
   ],
   openGraph: {
-    title: 'Sweet Delight Artisan Bakery & Patisserie',
-    description: 'Freshly baked at 5:00 AM daily. Handcrafted celebration cakes and French pastries.',
+    title: 'Butter & Crumb Artisan Bakery',
+    description: 'Fresh cakes, rich truffles, and artisan bakes made daily with pure butter and real ingredients.',
     type: 'website',
   },
 };

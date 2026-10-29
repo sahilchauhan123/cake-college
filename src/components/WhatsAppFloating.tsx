@@ -9,7 +9,7 @@ export default function WhatsAppFloating() {
   const pathname = usePathname();
 
   const whatsappUrl = getWhatsAppUrl(
-    'Hi Sweet Delight! I would like to ask a question or place a bakery order.'
+    'Hi Butter & Crumb! I would like to ask a question or place a bakery order.'
   );
 
   if (pathname?.startsWith('/admin')) {

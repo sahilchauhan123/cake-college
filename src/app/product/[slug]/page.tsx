@@ -101,7 +101,7 @@ export default function ProductDetailPage() {
   };
 
   const whatsappInquiryUrl = getWhatsAppUrl(
-    `Hi Sweet Delight Bakery! I want to order "${product.name}" (${currentSize.label}) with quantity: ${quantity}.${
+    `Hi Butter & Crumb Bakery! I want to order "${product.name}" (${currentSize.label}) with quantity: ${quantity}.${
       cakeMessage ? ` Custom message: "${cakeMessage}"` : ''
     } Is this available today?`
   );

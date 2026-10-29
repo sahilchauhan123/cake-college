@@ -1,12 +1,36 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { Cake, Sparkles, Upload, Calendar, Clock, CheckCircle2, MessageCircle, AlertCircle, ArrowRight } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { supabase } from '../../lib/supabase';
 import { formatCustomCakeWhatsAppMessage, getWhatsAppUrl } from '../../lib/whatsapp';
+import type { CakeStudioOption } from '../../types/supabase';
+
+const DEFAULT_CAKE_STYLES = [
+  { id: 'Buttercream Floral', name: 'Buttercream Floral & Textured (Eggless)', desc: 'Silky smooth whipped buttercream with piped roses and edible golden pearls.', basePrice: 850 },
+  { id: 'Semi-Naked Rustic', name: 'Semi-Naked Saffron & Dry Fruit', desc: 'Exposed crumb sponge layered with saffron rabdi, slivered pistachios & rose petals.', basePrice: 750 },
+  { id: 'Sculpted Fondant', name: 'Sculpted 3D Theme & Fondant', desc: 'Custom cartoon, half-birthday, engagement ring box, or traditional peacock theme.', basePrice: 1200 },
+  { id: 'Vintage Lambeth', name: 'Vintage Lambeth Heart (Eggless)', desc: 'Victorian ornate frills, heart-shaped silhouette & celebratory satin ribbon.', basePrice: 950 },
+];
+
+const DEFAULT_SPONGE_OPTIONS = [
+  'Belgian Dark Chocolate Truffle (100% Eggless)',
+  'Royal Rasmalai Infused Sponge (100% Eggless)',
+  'Kesar Pista Saffron Sponge (100% Eggless)',
+  'Classic Red Velvet Sponge',
+  'Gulab Jamun Cardamom Chiffon (100% Eggless)',
+];
+
+const DEFAULT_FILLING_OPTIONS = [
+  'Dark Belgian Chocolate Ganache',
+  'Saffron Rabdi & Rasmalai Compote',
+  'Pistachio Praline Crunch',
+  'Whipped Vanilla Buttercream',
+  'Philadelphia Cream Cheese',
+];
 
 export default function CustomCakePage() {
   const [currentStep, setCurrentStep] = useState(1);
@@ -14,10 +38,14 @@ export default function CustomCakePage() {
   const [submittedRequestNumber, setSubmittedRequestNumber] = useState<string | null>(null);
   const [whatsappLink, setWhatsappLink] = useState<string | null>(null);
 
+  // Dynamic Options from Supabase
+  const [studioOptions, setStudioOptions] = useState<CakeStudioOption[]>([]);
+  const [isOptionsLoading, setIsOptionsLoading] = useState(true);
+
   // Form State
-  const [cakeType, setCakeType] = useState('Buttercream Floral');
-  const [spongeFlavor, setSpongeFlavor] = useState('Belgian Chocolate Truffle');
-  const [fillingFlavor, setFillingFlavor] = useState('Dark Chocolate Ganache');
+  const [cakeType, setCakeType] = useState('Buttercream Floral & Textured');
+  const [spongeFlavor, setSpongeFlavor] = useState('Belgian Dark Chocolate Truffle');
+  const [fillingFlavor, setFillingFlavor] = useState('Dark Belgian Chocolate Ganache');
   const [tierCount, setTierCount] = useState<1 | 2 | 3>(1);
   const [estimatedWeightKg, setEstimatedWeightKg] = useState(1.5);
   const [messageOnCake, setMessageOnCake] = useState('');
@@ -41,29 +69,82 @@ export default function CustomCakePage() {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
 
-  // Styles & Flavors Options (Indian Bakery Specials)
-  const cakeStyles = [
-    { id: 'Buttercream Floral', name: 'Buttercream Floral & Textured (Eggless)', desc: 'Silky smooth whipped buttercream with piped roses and edible golden pearls.', basePrice: 850 },
-    { id: 'Semi-Naked Rustic', name: 'Semi-Naked Saffron & Dry Fruit', desc: 'Exposed crumb sponge layered with saffron rabdi, slivered pistachios & rose petals.', basePrice: 750 },
-    { id: 'Sculpted Fondant', name: 'Sculpted 3D Theme & Fondant', desc: 'Custom cartoon, half-birthday, engagement ring box, or traditional peacock theme.', basePrice: 1200 },
-    { id: 'Vintage Lambeth', name: 'Vintage Lambeth Heart (Eggless)', desc: 'Victorian ornate frills, heart-shaped silhouette & celebratory satin ribbon.', basePrice: 950 },
-  ];
+  // Load dynamic options from Supabase with realtime subscription
+  useEffect(() => {
+    async function fetchStudioOptions() {
+      try {
+        const { data, error } = await supabase
+          .from('cake_studio_options')
+          .select('*')
+          .eq('is_active', true)
+          .order('display_order', { ascending: true });
 
-  const spongeOptions = [
-    'Belgian Dark Chocolate Truffle (100% Eggless)',
-    'Royal Rasmalai Infused Sponge (100% Eggless)',
-    'Kesar Pista Saffron Sponge (100% Eggless)',
-    'Classic Red Velvet Sponge',
-    'Gulab Jamun Cardamom Chiffon (100% Eggless)',
-  ];
+        if (data && data.length > 0) {
+          const typedData = data as CakeStudioOption[];
+          setStudioOptions(typedData);
+          const styles = typedData.filter((d) => d.type === 'style');
+          if (styles.length > 0 && !styles.some((s) => s.name === cakeType)) {
+            setCakeType(styles[0].name);
+          }
+          const sponges = typedData.filter((d) => d.type === 'sponge');
+          if (sponges.length > 0 && !sponges.some((s) => s.name === spongeFlavor)) {
+            setSpongeFlavor(sponges[0].name);
+          }
+          const fillings = typedData.filter((d) => d.type === 'filling');
+          if (fillings.length > 0 && !fillings.some((f) => f.name === fillingFlavor)) {
+            setFillingFlavor(fillings[0].name);
+          }
+        }
+      } catch (err) {
+        console.error('Error fetching cake studio options:', err);
+      } finally {
+        setIsOptionsLoading(false);
+      }
+    }
 
-  const fillingOptions = [
-    'Dark Belgian Chocolate Ganache',
-    'Saffron Rabdi & Rasmalai Compote',
-    'Pistachio Praline Crunch',
-    'Whipped Vanilla Buttercream',
-    'Philadelphia Cream Cheese',
-  ];
+    fetchStudioOptions();
+
+    // Listen for realtime changes
+    const channel = supabase
+      .channel('cake_studio_options_realtime')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'cake_studio_options' },
+        () => {
+          fetchStudioOptions();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
+
+  const cakeStyles = useMemo(() => {
+    const fromDb = studioOptions.filter((o) => o.type === 'style');
+    if (fromDb.length > 0) {
+      return fromDb.map((s) => ({
+        id: s.name,
+        name: s.name,
+        desc: s.description || '',
+        basePrice: Number(s.base_price) || 850,
+      }));
+    }
+    return DEFAULT_CAKE_STYLES;
+  }, [studioOptions]);
+
+  const spongeOptions = useMemo(() => {
+    const fromDb = studioOptions.filter((o) => o.type === 'sponge');
+    if (fromDb.length > 0) return fromDb.map((s) => s.name);
+    return DEFAULT_SPONGE_OPTIONS;
+  }, [studioOptions]);
+
+  const fillingOptions = useMemo(() => {
+    const fromDb = studioOptions.filter((o) => o.type === 'filling');
+    if (fromDb.length > 0) return fromDb.map((f) => f.name);
+    return DEFAULT_FILLING_OPTIONS;
+  }, [studioOptions]);
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -185,13 +266,13 @@ export default function CustomCakePage() {
         <div className="text-center mb-10">
           <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[#FFE600] text-[#111111] border border-[#111111] text-[10px] font-black uppercase tracking-wider mb-3 shadow-[2px_2px_0px_#111111]">
             <Sparkles className="w-3.5 h-3.5 text-[#E4007C]" />
-            CUSTOM CAKE LAB &amp; BESPOKE DESSERT STUDIO
+            CUSTOM CAKE STUDIO
           </div>
           <h1 className="text-4xl md:text-5xl font-black uppercase tracking-tight text-[#111111]">
             DESIGN YOUR DREAM CAKE
           </h1>
           <p className="text-xs md:text-sm text-[#6B7280] font-medium mt-3 max-w-xl mx-auto">
-            From intimate birthday celebrations to showstopper multi-tier party centerpieces, our pastry chefs bring your sweetest vision to life.
+            From birthdays to weddings, share your ideas and our chefs will bake it fresh for your celebration.
           </p>
         </div>
 

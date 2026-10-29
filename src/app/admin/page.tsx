@@ -42,7 +42,21 @@ import {
   ShieldCheck,
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
-import type { Order, CustomCakeRequest, Product, Category, OrderItem } from '../../types/supabase';
+import type { Order, CustomCakeRequest, Product, Category, OrderItem, CakeStudioOption } from '../../types/supabase';
+import {
+  ResponsiveContainer,
+  AreaChart,
+  Area,
+  BarChart,
+  Bar,
+  PieChart,
+  Pie,
+  Cell,
+  XAxis,
+  YAxis,
+  Tooltip as RechartsTooltip,
+  CartesianGrid,
+} from 'recharts';
 
 export type OrderWithItems = Order & {
   order_items?: OrderItem[];
@@ -66,6 +80,8 @@ interface SizeOption {
 export default function AdminDashboardPage() {
   const [activeTab, setActiveTab] = useState<'dashboard' | 'orders' | 'custom-cakes' | 'inventory' | 'crm'>('dashboard');
   const [chartMetric, setChartMetric] = useState<'revenue' | 'orders'>('revenue');
+  const [chartView, setChartView] = useState<'trend' | 'status'>('trend');
+  const [isMounted, setIsMounted] = useState(false);
 
   const [orders, setOrders] = useState<OrderWithItems[]>([]);
   const [cakeRequests, setCakeRequests] = useState<CustomCakeRequest[]>([]);
@@ -98,6 +114,23 @@ export default function AdminDashboardPage() {
     { label: '1.0 kg (Serves 8-12)', extra_price: 450 },
   ]);
 
+  // Studio Options CRUD State
+  const [studioOptions, setStudioOptions] = useState<CakeStudioOption[]>([]);
+  const [customCakesSubTab, setCustomCakesSubTab] = useState<'inquiries' | 'options'>('inquiries');
+  const [studioFilterType, setStudioFilterType] = useState<'all' | 'style' | 'sponge' | 'filling'>('all');
+  const [isOptionModalOpen, setIsOptionModalOpen] = useState(false);
+  const [editingOption, setEditingOption] = useState<CakeStudioOption | null>(null);
+  const [isSavingOption, setIsSavingOption] = useState(false);
+
+  // Studio Option Form Fields
+  const [formOptType, setFormOptType] = useState<'style' | 'sponge' | 'filling'>('style');
+  const [formOptName, setFormOptName] = useState('');
+  const [formOptDesc, setFormOptDesc] = useState('');
+  const [formOptBasePrice, setFormOptBasePrice] = useState<number | ''>(850);
+  const [formOptIsEggless, setFormOptIsEggless] = useState(true);
+  const [formOptIsActive, setFormOptIsActive] = useState(true);
+  const [formOptOrder, setFormOptOrder] = useState<number>(0);
+
   // Admin Authentication State
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
   const [authChecking, setAuthChecking] = useState<boolean>(true);
@@ -116,6 +149,7 @@ export default function AdminDashboardPage() {
       }
     }
     setAuthChecking(false);
+    setIsMounted(true);
   }, []);
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -175,12 +209,13 @@ export default function AdminDashboardPage() {
   const fetchData = async () => {
     setIsLoading(true);
     try {
-      const [orderRes, cakeRes, prodRes, catRes, itemsRes] = await Promise.all([
+      const [orderRes, cakeRes, prodRes, catRes, itemsRes, studioRes] = await Promise.all([
         supabase.from('orders').select('*').order('created_at', { ascending: false }),
         supabase.from('custom_cake_requests').select('*').order('created_at', { ascending: false }),
         supabase.from('products').select('*').order('created_at', { ascending: false }),
         supabase.from('categories').select('*').order('display_order'),
         supabase.from('order_items').select('*'),
+        supabase.from('cake_studio_options').select('*').order('display_order'),
       ]);
 
       if (orderRes.data) {
@@ -207,6 +242,9 @@ export default function AdminDashboardPage() {
         if (catList.length > 0 && !formCategoryId) {
           setFormCategoryId(catList[0].id);
         }
+      }
+      if (studioRes.data) {
+        setStudioOptions(studioRes.data as CakeStudioOption[]);
       }
     } catch (err) {
       console.error('Error fetching admin data:', err);
@@ -240,6 +278,13 @@ export default function AdminDashboardPage() {
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'custom_cake_requests' },
+        () => {
+          fetchData();
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'cake_studio_options' },
         () => {
           fetchData();
         }
@@ -363,6 +408,97 @@ export default function AdminDashboardPage() {
     } catch (err: any) {
       console.error('Error deleting inquiry:', err);
       alert('Could not delete inquiry: ' + (err.message || 'Error occurred'));
+    }
+  };
+
+  // Studio Options CRUD Handlers
+  const handleOpenCreateOption = (type: 'style' | 'sponge' | 'filling' = 'style') => {
+    setEditingOption(null);
+    setFormOptType(type);
+    setFormOptName('');
+    setFormOptDesc('');
+    setFormOptBasePrice(type === 'style' ? 850 : 0);
+    setFormOptIsEggless(true);
+    setFormOptIsActive(true);
+    setFormOptOrder(studioOptions.filter((o) => o.type === type).length + 1);
+    setIsOptionModalOpen(true);
+  };
+
+  const handleOpenEditOption = (option: CakeStudioOption) => {
+    setEditingOption(option);
+    setFormOptType(option.type);
+    setFormOptName(option.name);
+    setFormOptDesc(option.description || '');
+    setFormOptBasePrice(option.base_price);
+    setFormOptIsEggless(option.is_eggless);
+    setFormOptIsActive(option.is_active);
+    setFormOptOrder(option.display_order);
+    setIsOptionModalOpen(true);
+  };
+
+  const handleSaveStudioOption = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!formOptName.trim()) {
+      alert('Option name is required.');
+      return;
+    }
+    setIsSavingOption(true);
+    try {
+      const payload = {
+        type: formOptType,
+        name: formOptName.trim(),
+        description: formOptDesc.trim() || null,
+        base_price: Number(formOptBasePrice) || 0,
+        is_eggless: formOptIsEggless,
+        is_active: formOptIsActive,
+        display_order: Number(formOptOrder) || 0,
+      };
+
+      if (editingOption) {
+        const { error } = await (supabase.from('cake_studio_options') as any)
+          .update(payload)
+          .eq('id', editingOption.id);
+        if (error) throw error;
+      } else {
+        const { error } = await (supabase.from('cake_studio_options') as any)
+          .insert(payload);
+        if (error) throw error;
+      }
+
+      await fetchData();
+      setIsOptionModalOpen(false);
+      setEditingOption(null);
+    } catch (err: any) {
+      console.error('Error saving studio option:', err);
+      alert('Failed to save studio option: ' + (err.message || 'Unknown error'));
+    } finally {
+      setIsSavingOption(false);
+    }
+  };
+
+  const handleToggleOptionActive = async (option: CakeStudioOption) => {
+    try {
+      const nextActive = !option.is_active;
+      await (supabase.from('cake_studio_options') as any)
+        .update({ is_active: nextActive })
+        .eq('id', option.id);
+      setStudioOptions((prev) =>
+        prev.map((o) => (o.id === option.id ? { ...o, is_active: nextActive } : o))
+      );
+    } catch (err) {
+      console.error('Error toggling active state:', err);
+    }
+  };
+
+  const handleDeleteStudioOption = async (option: CakeStudioOption) => {
+    if (!window.confirm(`Delete "${option.name}" from cake studio options?`)) return;
+    try {
+      const { error } = await supabase.from('cake_studio_options').delete().eq('id', option.id);
+      if (error) throw error;
+      setStudioOptions((prev) => prev.filter((o) => o.id !== option.id));
+    } catch (err: any) {
+      console.error('Error deleting studio option:', err);
+      alert('Could not delete option: ' + (err.message || 'Error occurred'));
     }
   };
 
@@ -614,6 +750,121 @@ export default function AdminDashboardPage() {
   const bakingOrdersCount = orders.filter((o) => o.order_status === 'BAKING').length;
   const readyOrdersCount = orders.filter((o) => o.order_status === 'READY').length;
 
+  // Real Sales & Volume Trends Data for Recharts
+  const salesTrendData = useMemo(() => {
+    const dayMap = new Map<string, { dateKey: string; label: string; revenue: number; orders: number; aov: number }>();
+    const now = new Date();
+
+    // Generate last 7 days
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date();
+      d.setDate(now.getDate() - i);
+      const key = d.toISOString().split('T')[0];
+      const label = d.toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric' });
+      dayMap.set(key, { dateKey: key, label, revenue: 0, orders: 0, aov: 0 });
+    }
+
+    // Populate with real orders
+    orders.forEach((o) => {
+      if (!o.created_at) return;
+      const dateKey = new Date(o.created_at).toISOString().split('T')[0];
+      const entry = dayMap.get(dateKey);
+      if (entry) {
+        entry.revenue += Number(o.grand_total || 0);
+        entry.orders += 1;
+      } else {
+        const d = new Date(o.created_at);
+        const label = d.toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric' });
+        dayMap.set(dateKey, {
+          dateKey,
+          label,
+          revenue: Number(o.grand_total || 0),
+          orders: 1,
+          aov: Number(o.grand_total || 0),
+        });
+      }
+    });
+
+    // Also include custom cake requests
+    cakeRequests.forEach((c) => {
+      if (!c.created_at) return;
+      const dateKey = new Date(c.created_at).toISOString().split('T')[0];
+      const entry = dayMap.get(dateKey);
+      if (entry) {
+        entry.revenue += Number(c.quoted_price || 0);
+        entry.orders += 1;
+      }
+    });
+
+    const list = Array.from(dayMap.values()).sort((a, b) => a.dateKey.localeCompare(b.dateKey));
+    return list.map((item) => ({
+      ...item,
+      aov: item.orders > 0 ? Math.round(item.revenue / item.orders) : 0,
+    }));
+  }, [orders, cakeRequests]);
+
+  // Real Order Status Breakdown for Donut Chart
+  const orderStatusData = useMemo(() => {
+    const counts: Record<string, number> = {
+      PENDING: 0,
+      BAKING: 0,
+      READY: 0,
+      DELIVERED: 0,
+      COMPLETED: 0,
+    };
+    orders.forEach((o) => {
+      const status = (o.order_status || 'PENDING').toUpperCase();
+      counts[status] = (counts[status] || 0) + 1;
+    });
+
+    cakeRequests.forEach((c) => {
+      const status = (c.status || 'PENDING').toUpperCase();
+      counts[status] = (counts[status] || 0) + 1;
+    });
+
+    const statusColors: Record<string, string> = {
+      PENDING: '#F59E0B',
+      BAKING: '#E4007C',
+      READY: '#10B981',
+      DELIVERED: '#3B82F6',
+      COMPLETED: '#059669',
+    };
+
+    const statusLabels: Record<string, string> = {
+      PENDING: 'Pending',
+      BAKING: 'Baking',
+      READY: 'Ready',
+      DELIVERED: 'Delivered',
+      COMPLETED: 'Completed',
+    };
+
+    const result = Object.entries(counts)
+      .filter(([_, value]) => value > 0)
+      .map(([key, value]) => ({
+        name: statusLabels[key] || key,
+        rawStatus: key,
+        value,
+        color: statusColors[key] || '#94A3B8',
+      }));
+
+    if (result.length === 0) {
+      return [{ name: 'Ready to Bake', rawStatus: 'READY', value: 1, color: '#E4007C' }];
+    }
+    return result;
+  }, [orders, cakeRequests]);
+
+  // Peak Day calculation from actual data
+  const peakDayInfo = useMemo(() => {
+    if (salesTrendData.length === 0) return { label: 'Today', revenue: 0, orders: 0 };
+    return salesTrendData.reduce((prev, curr) => (curr.revenue > prev.revenue ? curr : prev), salesTrendData[0]);
+  }, [salesTrendData]);
+
+  // Real Average Order Value
+  const realAOV = useMemo(() => {
+    if (orders.length === 0) return 0;
+    return Math.round(totalRevenue / orders.length);
+  }, [orders, totalRevenue]);
+
   if (authChecking) {
     return (
       <div className="min-h-screen bg-[#F5F7FB] flex items-center justify-center p-4">
@@ -754,15 +1005,21 @@ export default function AdminDashboardPage() {
         <div>
           {/* Brand Header */}
           <div className="p-6 pb-5 flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-[#E4007C] to-[#FFA07A] flex items-center justify-center text-white font-bold text-sm shadow-md shadow-pink-500/20">
-              <ChefHat className="w-5 h-5 text-white" />
+            <div className="w-10 h-10 rounded-2xl overflow-hidden border border-slate-200 bg-white flex items-center justify-center shrink-0 shadow-sm p-1">
+              <Image
+                src="/logo-mark.png"
+                alt="Butter & Crumb Logo"
+                width={40}
+                height={40}
+                className="object-contain w-full h-full"
+              />
             </div>
             <div>
               <span className="font-extrabold text-base tracking-tight text-slate-900 block leading-tight">
-                Sweet Delight
+                Butter &amp; Crumb
               </span>
               <span className="text-[11px] font-semibold text-slate-400">
-                Bakery Operations
+                Kitchen Operations
               </span>
             </div>
           </div>
@@ -979,29 +1236,31 @@ export default function AdminDashboardPage() {
 
                   {/* Smooth Sparkline */}
                   <div className="pt-2">
-                    <svg viewBox="0 0 200 55" className="w-full h-14 overflow-visible">
-                      <defs>
-                        <linearGradient id="yellowSpark" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="0%" stopColor="#F59E0B" stopOpacity="0.2" />
-                          <stop offset="100%" stopColor="#F59E0B" stopOpacity="0.0" />
-                        </linearGradient>
-                      </defs>
-                      <path
-                        d="M 0 35 Q 25 15, 50 38 T 100 45 T 150 20 T 200 28 L 200 55 L 0 55 Z"
-                        fill="url(#yellowSpark)"
-                      />
-                      <path
-                        d="M 0 35 Q 25 15, 50 38 T 100 45 T 150 20 T 200 28"
-                        fill="none"
-                        stroke="#F59E0B"
-                        strokeWidth="2.5"
-                        strokeLinecap="round"
-                      />
-                      <circle cx="100" cy="45" r="4" fill="#F59E0B" />
-                    </svg>
+                    <div className="h-12 w-full">
+                      {isMounted && (
+                        <ResponsiveContainer width="100%" height="100%">
+                          <AreaChart data={salesTrendData} margin={{ top: 2, right: 2, left: 2, bottom: 0 }}>
+                            <defs>
+                              <linearGradient id="amberSpark" x1="0" y1="0" x2="0" y2="1">
+                                <stop offset="0%" stopColor="#F59E0B" stopOpacity={0.35} />
+                                <stop offset="100%" stopColor="#F59E0B" stopOpacity={0.0} />
+                              </linearGradient>
+                            </defs>
+                            <Area
+                              type="monotone"
+                              dataKey="revenue"
+                              stroke="#F59E0B"
+                              strokeWidth={2}
+                              fill="url(#amberSpark)"
+                              dot={false}
+                            />
+                          </AreaChart>
+                        </ResponsiveContainer>
+                      )}
+                    </div>
                     <div className="flex justify-between text-[10px] font-medium text-slate-400 mt-1">
-                      <span>Mon</span>
-                      <span className="text-slate-700 font-semibold">Peak: ₹{Math.round(totalRevenue * 0.4).toLocaleString('en-IN')}</span>
+                      <span>7d Ago</span>
+                      <span className="text-slate-700 font-semibold">Peak: ₹{peakDayInfo.revenue.toLocaleString('en-IN')}</span>
                       <span>Today</span>
                     </div>
                   </div>
@@ -1033,30 +1292,32 @@ export default function AdminDashboardPage() {
 
                   {/* Smooth Sparkline */}
                   <div className="pt-2">
-                    <svg viewBox="0 0 200 55" className="w-full h-14 overflow-visible">
-                      <defs>
-                        <linearGradient id="pinkSpark" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="0%" stopColor="#E4007C" stopOpacity="0.2" />
-                          <stop offset="100%" stopColor="#E4007C" stopOpacity="0.0" />
-                        </linearGradient>
-                      </defs>
-                      <path
-                        d="M 0 38 Q 25 42, 50 25 T 100 18 T 150 32 T 200 22 L 200 55 L 0 55 Z"
-                        fill="url(#pinkSpark)"
-                      />
-                      <path
-                        d="M 0 38 Q 25 42, 50 25 T 100 18 T 150 32 T 200 22"
-                        fill="none"
-                        stroke="#E4007C"
-                        strokeWidth="2.5"
-                        strokeLinecap="round"
-                      />
-                      <circle cx="100" cy="18" r="4" fill="#E4007C" />
-                    </svg>
+                    <div className="h-12 w-full">
+                      {isMounted && (
+                        <ResponsiveContainer width="100%" height="100%">
+                          <AreaChart data={salesTrendData} margin={{ top: 2, right: 2, left: 2, bottom: 0 }}>
+                            <defs>
+                              <linearGradient id="pinkSpark" x1="0" y1="0" x2="0" y2="1">
+                                <stop offset="0%" stopColor="#E4007C" stopOpacity={0.35} />
+                                <stop offset="100%" stopColor="#E4007C" stopOpacity={0.0} />
+                              </linearGradient>
+                            </defs>
+                            <Area
+                              type="monotone"
+                              dataKey="orders"
+                              stroke="#E4007C"
+                              strokeWidth={2}
+                              fill="url(#pinkSpark)"
+                              dot={false}
+                            />
+                          </AreaChart>
+                        </ResponsiveContainer>
+                      )}
+                    </div>
                     <div className="flex justify-between text-[10px] font-medium text-slate-400 mt-1">
-                      <span>8 AM Prep</span>
-                      <span className="text-[#E4007C] font-semibold">+14 bakes/hr</span>
-                      <span>4 PM Peak</span>
+                      <span>7d Ago</span>
+                      <span className="text-[#E4007C] font-semibold">{orders.length} Total Orders</span>
+                      <span>Today</span>
                     </div>
                   </div>
                 </div>
@@ -1087,26 +1348,28 @@ export default function AdminDashboardPage() {
 
                   {/* Smooth Sparkline */}
                   <div className="pt-2">
-                    <svg viewBox="0 0 200 55" className="w-full h-14 overflow-visible">
-                      <defs>
-                        <linearGradient id="violetSpark" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="0%" stopColor="#8B5CF6" stopOpacity="0.2" />
-                          <stop offset="100%" stopColor="#8B5CF6" stopOpacity="0.0" />
-                        </linearGradient>
-                      </defs>
-                      <path
-                        d="M 0 30 Q 25 10, 50 25 T 100 35 T 150 15 T 200 24 L 200 55 L 0 55 Z"
-                        fill="url(#violetSpark)"
-                      />
-                      <path
-                        d="M 0 30 Q 25 10, 50 25 T 100 35 T 150 15 T 200 24"
-                        fill="none"
-                        stroke="#8B5CF6"
-                        strokeWidth="2.5"
-                        strokeLinecap="round"
-                      />
-                      <circle cx="150" cy="15" r="4" fill="#8B5CF6" />
-                    </svg>
+                    <div className="h-12 w-full">
+                      {isMounted && (
+                        <ResponsiveContainer width="100%" height="100%">
+                          <AreaChart data={salesTrendData} margin={{ top: 2, right: 2, left: 2, bottom: 0 }}>
+                            <defs>
+                              <linearGradient id="violetSpark" x1="0" y1="0" x2="0" y2="1">
+                                <stop offset="0%" stopColor="#8B5CF6" stopOpacity={0.35} />
+                                <stop offset="100%" stopColor="#8B5CF6" stopOpacity={0.0} />
+                              </linearGradient>
+                            </defs>
+                            <Area
+                              type="monotone"
+                              dataKey="orders"
+                              stroke="#8B5CF6"
+                              strokeWidth={2}
+                              fill="url(#violetSpark)"
+                              dot={false}
+                            />
+                          </AreaChart>
+                        </ResponsiveContainer>
+                      )}
+                    </div>
                     <div className="flex justify-between text-[10px] font-medium text-slate-400 mt-1">
                       <span>3D Studio</span>
                       <span className="text-violet-600 font-semibold">
@@ -1197,98 +1460,240 @@ export default function AdminDashboardPage() {
                   )}
                 </div>
 
-                {/* Right Section: Statistics Wave Chart */}
+                {/* Right Section: Real Interactive Recharts Analytics */}
                 <div className="lg:col-span-6 bg-white p-5 rounded-2xl border border-slate-100 shadow-[0_4px_20px_rgba(0,0,0,0.03)] space-y-4">
-                  <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100">
                     <div>
-                      <h2 className="text-base font-bold text-slate-800">
-                        Bakery Statistics
+                      <h2 className="text-base font-bold text-slate-800 flex items-center gap-2">
+                        <span>Bakery Analytics &amp; Flow</span>
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+                          Live Data
+                        </span>
                       </h2>
                       <p className="text-xs text-slate-400">
-                        Weekly revenue &amp; volume trend
+                        {chartView === 'trend'
+                          ? 'Real 7-day sales throughput and order volume'
+                          : 'Live order status and kitchen lifecycle distribution'}
                       </p>
                     </div>
 
-                    {/* Segmented Pill Toggle */}
-                    <div className="bg-slate-100 p-1 rounded-full flex items-center text-xs font-semibold">
-                      <button
-                        onClick={() => setChartMetric('revenue')}
-                        className={`px-3 py-1 rounded-full transition-all cursor-pointer ${
-                          chartMetric === 'revenue'
-                            ? 'bg-[#E4007C] text-white shadow-xs'
-                            : 'text-slate-500 hover:text-slate-800'
-                        }`}
-                      >
-                        Revenue
-                      </button>
-                      <button
-                        onClick={() => setChartMetric('orders')}
-                        className={`px-3 py-1 rounded-full transition-all cursor-pointer ${
-                          chartMetric === 'orders'
-                            ? 'bg-[#E4007C] text-white shadow-xs'
-                            : 'text-slate-500 hover:text-slate-800'
-                        }`}
-                      >
-                        Orders
-                      </button>
+                    {/* View and Metric Controls */}
+                    <div className="flex items-center gap-2">
+                      {/* View Switch: Trend vs Status */}
+                      <div className="bg-slate-100 p-1 rounded-xl flex items-center text-xs font-semibold">
+                        <button
+                          type="button"
+                          onClick={() => setChartView('trend')}
+                          className={`px-2.5 py-1 rounded-lg transition-all cursor-pointer ${
+                            chartView === 'trend'
+                              ? 'bg-white text-slate-900 shadow-xs'
+                              : 'text-slate-500 hover:text-slate-800'
+                          }`}
+                        >
+                          Trends
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setChartView('status')}
+                          className={`px-2.5 py-1 rounded-lg transition-all cursor-pointer ${
+                            chartView === 'status'
+                              ? 'bg-white text-slate-900 shadow-xs'
+                              : 'text-slate-500 hover:text-slate-800'
+                          }`}
+                        >
+                          Lifecycle
+                        </button>
+                      </div>
+
+                      {/* If Trend view, metric switch: Revenue vs Orders */}
+                      {chartView === 'trend' && (
+                        <div className="bg-slate-100 p-1 rounded-xl flex items-center text-xs font-semibold">
+                          <button
+                            type="button"
+                            onClick={() => setChartMetric('revenue')}
+                            className={`px-2.5 py-1 rounded-lg transition-all cursor-pointer ${
+                              chartMetric === 'revenue'
+                                ? 'bg-[#E4007C] text-white shadow-xs'
+                                : 'text-slate-500 hover:text-slate-800'
+                            }`}
+                          >
+                            ₹ Sales
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setChartMetric('orders')}
+                            className={`px-2.5 py-1 rounded-lg transition-all cursor-pointer ${
+                              chartMetric === 'orders'
+                                ? 'bg-[#E4007C] text-white shadow-xs'
+                                : 'text-slate-500 hover:text-slate-800'
+                            }`}
+                          >
+                            Orders
+                          </button>
+                        </div>
+                      )}
                     </div>
                   </div>
 
-                  {/* Wave Chart Graphic */}
-                  <div className="relative pt-2">
-                    <div className="text-center mb-1">
-                      <span className="inline-block bg-[#E4007C] text-white px-3 py-1 rounded-full text-xs font-bold shadow-sm shadow-pink-500/20">
-                        {chartMetric === 'revenue' ? `Peak Day: ₹${Math.round(totalRevenue || 12450)}` : 'Peak Day: 28 Orders'}
+                  {/* Real Chart Graphic Area */}
+                  <div className="relative pt-1">
+                    {/* Peak Day Header Badge */}
+                    <div className="flex items-center justify-between text-xs mb-3">
+                      <span className="font-semibold text-slate-500">
+                        {chartView === 'trend'
+                          ? chartMetric === 'revenue'
+                            ? `Daily Revenue Breakdown (7 Days)`
+                            : `Daily Order Throughput (7 Days)`
+                          : `Active Orders Distribution`}
+                      </span>
+                      <span className="inline-block bg-[#E4007C] text-white px-3 py-0.5 rounded-full text-[11px] font-bold shadow-xs">
+                        {chartView === 'trend'
+                          ? chartMetric === 'revenue'
+                            ? `Peak: ₹${peakDayInfo.revenue.toLocaleString('en-IN')} (${peakDayInfo.label})`
+                            : `Peak: ${peakDayInfo.orders} Bakes (${peakDayInfo.label})`
+                          : `${orders.length + cakeRequests.length} Total Orders & Inquiries`}
                       </span>
                     </div>
 
-                    {/* Smooth Wave SVG */}
-                    <svg viewBox="0 0 500 170" className="w-full h-40 overflow-visible">
-                      <defs>
-                        <linearGradient id="mainChartGrad" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="0%" stopColor="#3B82F6" stopOpacity="0.25" />
-                          <stop offset="100%" stopColor="#3B82F6" stopOpacity="0.0" />
-                        </linearGradient>
-                      </defs>
-                      <line x1="0" y1="35" x2="500" y2="35" stroke="#F1F5F9" strokeWidth="1" strokeDasharray="4 4" />
-                      <line x1="0" y1="80" x2="500" y2="80" stroke="#F1F5F9" strokeWidth="1" strokeDasharray="4 4" />
-                      <line x1="0" y1="125" x2="500" y2="125" stroke="#F1F5F9" strokeWidth="1" strokeDasharray="4 4" />
-
-                      <path
-                        d="M 0 145 C 50 130, 80 140, 120 90 C 160 40, 200 110, 260 60 C 310 15, 360 30, 410 80 C 450 120, 480 110, 500 120 L 500 170 L 0 170 Z"
-                        fill="url(#mainChartGrad)"
-                      />
-                      <path
-                        d="M 0 145 C 50 130, 80 140, 120 90 C 160 40, 200 110, 260 60 C 310 15, 360 30, 410 80 C 450 120, 480 110, 500 120"
-                        fill="none"
-                        stroke="#2563EB"
-                        strokeWidth="3"
-                        strokeLinecap="round"
-                      />
-                      <circle cx="310" cy="15" r="5" fill="#2563EB" stroke="#FFFFFF" strokeWidth="2" />
-                    </svg>
-
-                    {/* Month Labels */}
-                    <div className="flex justify-between text-[11px] font-semibold text-slate-400 pt-2 border-t border-slate-100">
-                      <span>Jan</span>
-                      <span>Feb</span>
-                      <span>Mar</span>
-                      <span className="text-[#E4007C] font-bold">Apr</span>
-                      <span>May</span>
-                      <span>Jun</span>
-                      <span>Jul</span>
+                    {/* Chart Canvas */}
+                    <div className="h-48 w-full">
+                      {!isMounted ? (
+                        <div className="h-full flex items-center justify-center text-slate-300">
+                          <RefreshCw className="w-5 h-5 animate-spin text-[#E4007C]" />
+                        </div>
+                      ) : chartView === 'trend' ? (
+                        <ResponsiveContainer width="100%" height="100%">
+                          <AreaChart data={salesTrendData} margin={{ top: 10, right: 10, left: -15, bottom: 0 }}>
+                            <defs>
+                              <linearGradient id="salesTrendGrad" x1="0" y1="0" x2="0" y2="1">
+                                <stop offset="5%" stopColor="#E4007C" stopOpacity={0.35} />
+                                <stop offset="95%" stopColor="#E4007C" stopOpacity={0.0} />
+                              </linearGradient>
+                            </defs>
+                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F1F5F9" />
+                            <XAxis
+                              dataKey="label"
+                              stroke="#94A3B8"
+                              fontSize={11}
+                              tickLine={false}
+                              axisLine={false}
+                            />
+                            <YAxis
+                              stroke="#94A3B8"
+                              fontSize={11}
+                              tickLine={false}
+                              axisLine={false}
+                              tickFormatter={(val) =>
+                                chartMetric === 'revenue'
+                                  ? '₹' + (val >= 1000 ? `${(val / 1000).toFixed(1)}k` : val)
+                                  : val
+                              }
+                            />
+                            <RechartsTooltip
+                              content={({ active, payload }) => {
+                                if (active && payload && payload.length) {
+                                  const d = payload[0].payload;
+                                  return (
+                                    <div className="bg-slate-900 text-white p-3 rounded-xl shadow-xl text-xs space-y-1 border border-slate-800">
+                                      <p className="font-bold text-[#FFE600]">{d.label}</p>
+                                      <p className="text-slate-200">
+                                        Revenue:{' '}
+                                        <span className="font-bold text-white">
+                                          ₹{Number(d.revenue).toLocaleString('en-IN')}
+                                        </span>
+                                      </p>
+                                      <p className="text-slate-200">
+                                        Orders:{' '}
+                                        <span className="font-bold text-white">{d.orders} bakes</span>
+                                      </p>
+                                      {d.orders > 0 && (
+                                        <p className="text-slate-400 text-[10px]">
+                                          Avg Ticket: ₹{d.aov}
+                                        </p>
+                                      )}
+                                    </div>
+                                  );
+                                }
+                                return null;
+                              }}
+                            />
+                            <Area
+                              type="monotone"
+                              dataKey={chartMetric}
+                              stroke="#E4007C"
+                              strokeWidth={3}
+                              fill="url(#salesTrendGrad)"
+                              dot={{ r: 3, fill: '#E4007C', stroke: '#FFFFFF', strokeWidth: 2 }}
+                              activeDot={{ r: 6, fill: '#E4007C', stroke: '#FFE600', strokeWidth: 2 }}
+                            />
+                          </AreaChart>
+                        </ResponsiveContainer>
+                      ) : (
+                        <div className="h-full flex items-center justify-between gap-4">
+                          <div className="h-full w-1/2">
+                            <ResponsiveContainer width="100%" height="100%">
+                              <PieChart>
+                                <Pie
+                                  data={orderStatusData}
+                                  cx="50%"
+                                  cy="50%"
+                                  innerRadius={45}
+                                  outerRadius={70}
+                                  paddingAngle={4}
+                                  dataKey="value"
+                                >
+                                  {orderStatusData.map((entry, index) => (
+                                    <Cell key={`cell-${index}`} fill={entry.color} />
+                                  ))}
+                                </Pie>
+                                <RechartsTooltip
+                                  content={({ active, payload }) => {
+                                    if (active && payload && payload.length) {
+                                      const d = payload[0].payload;
+                                      return (
+                                        <div className="bg-slate-900 text-white px-3 py-1.5 rounded-xl shadow-lg text-xs font-semibold">
+                                          <span>{d.name}: {d.value}</span>
+                                        </div>
+                                      );
+                                    }
+                                    return null;
+                                  }}
+                                />
+                              </PieChart>
+                            </ResponsiveContainer>
+                          </div>
+                          <div className="w-1/2 space-y-1.5 pr-2">
+                            {orderStatusData.map((st) => (
+                              <div key={st.name} className="flex items-center justify-between text-xs">
+                                <div className="flex items-center gap-2">
+                                  <span
+                                    className="w-2.5 h-2.5 rounded-full"
+                                    style={{ backgroundColor: st.color }}
+                                  />
+                                  <span className="text-slate-600 font-medium">{st.name}</span>
+                                </div>
+                                <span className="font-bold text-slate-900">{st.value}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </div>
 
                   {/* Highlights Summary */}
-                  <div className="grid grid-cols-2 gap-3 pt-2">
-                    <div className="p-3 rounded-xl bg-pink-50/60 border border-pink-100 text-center">
-                      <span className="text-[11px] text-slate-500 font-medium block">Average Order</span>
-                      <span className="text-sm font-bold text-[#E4007C]">₹720</span>
+                  <div className="grid grid-cols-3 gap-2.5 pt-2 border-t border-slate-100">
+                    <div className="p-2.5 rounded-xl bg-pink-50/70 border border-pink-100/80 text-center">
+                      <span className="text-[10px] text-slate-500 font-medium block">Average Ticket</span>
+                      <span className="text-xs font-bold text-[#E4007C]">₹{realAOV.toLocaleString('en-IN')}</span>
                     </div>
-                    <div className="p-3 rounded-xl bg-amber-50/60 border border-amber-100 text-center">
-                      <span className="text-[11px] text-slate-500 font-medium block">Bestseller Share</span>
-                      <span className="text-sm font-bold text-slate-800">64% Cakes</span>
+                    <div className="p-2.5 rounded-xl bg-amber-50/70 border border-amber-100/80 text-center">
+                      <span className="text-[10px] text-slate-500 font-medium block">In Kitchen / Oven</span>
+                      <span className="text-xs font-bold text-amber-700">{bakingOrdersCount} Active</span>
+                    </div>
+                    <div className="p-2.5 rounded-xl bg-emerald-50/70 border border-emerald-100/80 text-center">
+                      <span className="text-[10px] text-slate-500 font-medium block">Ready to Ship</span>
+                      <span className="text-xs font-bold text-emerald-700">{readyOrdersCount} Orders</span>
                     </div>
                   </div>
                 </div>
@@ -1375,7 +1780,7 @@ export default function AdminDashboardPage() {
                                   href={
                                     order.customer_phone.replace(/\D/g, '').length >= 6
                                       ? `https://wa.me/${order.customer_phone.replace(/\D/g, '')}?text=${encodeURIComponent(
-                                          `Hi ${order.customer_name}! Updating you on your bakery order #${order.order_number} from Sweet Delight Bakery. Your order is currently ${order.order_status || 'being prepared'}. 🎂`
+                                          `Hi ${order.customer_name}! Updating you on your bakery order #${order.order_number} from Butter & Crumb Bakery. Your order is currently ${order.order_status || 'being prepared'}. 🎂`
                                         )}`
                                       : `tel:${order.customer_phone}`
                                   }
@@ -1525,206 +1930,443 @@ export default function AdminDashboardPage() {
             </div>
           )}
 
-          {/* TAB: CUSTOM CAKE INQUIRIES VIEW */}
+          {/* TAB: CUSTOM CAKE INQUIRIES & STUDIO OPTIONS VIEW */}
           {activeTab === 'custom-cakes' && (
-            <div className="space-y-4">
-              <div>
-                <h2 className="text-lg font-bold text-slate-900">Custom Cake Lab Inquiries ({cakeRequests.length})</h2>
-                <p className="text-xs text-slate-400 font-medium">Bespoke cake requests submitted with photo references and inscriptions.</p>
-              </div>
-
-              {cakeRequests.length === 0 ? (
-                <div className="bg-white p-12 rounded-2xl text-center border border-slate-100 shadow-sm">
-                  <Cake className="w-10 h-10 text-slate-300 mx-auto mb-2" />
-                  <h3 className="text-base font-bold text-slate-700">No custom cake requests</h3>
-                  <p className="text-xs text-slate-400 mt-1">
-                    Requests submitted through the Custom Cake Studio will appear here.
+            <div className="space-y-6">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-2 border-b border-slate-100">
+                <div>
+                  <h2 className="text-lg font-bold text-slate-900">Custom Cake Studio Management</h2>
+                  <p className="text-xs text-slate-400 font-medium">
+                    Manage incoming bespoke customer requests, dynamic cake styles, sponge flavors, and frostings.
                   </p>
                 </div>
-              ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {cakeRequests.map((cake) => {
-                    const refImage = cake.reference_image_urls?.[0];
-                    const waReplyText = `Hi ${cake.customer_name}! Thank you for your custom cake inquiry #${cake.request_number} for ${cake.event_date}. We can create this ${cake.cake_type} for an estimated quotation of ₹${cake.quoted_price || 1200}. Would you like us to proceed? 🎂`;
 
-                    const cakeStatus = cake.status || 'PENDING';
-                    const statusBadgeColors: Record<string, string> = {
-                      PENDING: 'bg-amber-50 text-amber-700 border border-amber-200',
-                      CONFIRMED: 'bg-blue-50 text-blue-700 border border-blue-200',
-                      BAKING: 'bg-pink-50 text-[#E4007C] border border-pink-200',
-                      READY: 'bg-emerald-50 text-emerald-700 border border-emerald-200',
-                      COMPLETED: 'bg-emerald-100 text-emerald-800 border border-emerald-300',
-                      CANCELLED: 'bg-slate-100 text-slate-600 border border-slate-200',
-                    };
+                {/* Sub-tab Switcher */}
+                <div className="flex items-center gap-1.5 p-1 bg-slate-100/90 rounded-xl border border-slate-200/60">
+                  <button
+                    type="button"
+                    onClick={() => setCustomCakesSubTab('inquiries')}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                      customCakesSubTab === 'inquiries'
+                        ? 'bg-white text-slate-900 shadow-xs'
+                        : 'text-slate-500 hover:text-slate-900'
+                    }`}
+                  >
+                    <span>Inquiries Queue</span>
+                    <span className="text-[10px] font-bold px-1.5 py-0.2 rounded-full bg-slate-100 text-slate-700">
+                      {cakeRequests.length}
+                    </span>
+                  </button>
 
-                    const cleanPhone = cake.customer_phone ? cake.customer_phone.replace(/\D/g, '') : '';
-                    const hasValidPhone = cleanPhone.length >= 6;
+                  <button
+                    type="button"
+                    onClick={() => setCustomCakesSubTab('options')}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                      customCakesSubTab === 'options'
+                        ? 'bg-[#E4007C] text-white shadow-xs'
+                        : 'text-slate-500 hover:text-slate-900'
+                    }`}
+                  >
+                    <Sliders className="w-3.5 h-3.5" />
+                    <span>Studio Styles &amp; Pricing</span>
+                    <span
+                      className={`text-[10px] font-bold px-1.5 py-0.2 rounded-full ${
+                        customCakesSubTab === 'options' ? 'bg-pink-700 text-white' : 'bg-pink-100 text-[#E4007C]'
+                      }`}
+                    >
+                      {studioOptions.length}
+                    </span>
+                  </button>
+                </div>
+              </div>
 
-                    return (
-                      <div
-                        key={cake.id}
-                        className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm hover:shadow-md transition-all flex flex-col justify-between"
-                      >
-                        <div>
-                          <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              {/* SUBTAB 1: INQUIRIES QUEUE */}
+              {customCakesSubTab === 'inquiries' && (
+                <div className="space-y-4">
+                  {cakeRequests.length === 0 ? (
+                    <div className="bg-white p-12 rounded-2xl text-center border border-slate-100 shadow-sm">
+                      <Cake className="w-10 h-10 text-slate-300 mx-auto mb-2" />
+                      <h3 className="text-base font-bold text-slate-700">No custom cake requests</h3>
+                      <p className="text-xs text-slate-400 mt-1">
+                        Requests submitted through the Custom Cake Studio will appear here.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {cakeRequests.map((cake) => {
+                        const refImage = cake.reference_image_urls?.[0];
+                        const waReplyText = `Hi ${cake.customer_name}! Thank you for your custom cake inquiry #${cake.request_number} for ${cake.event_date}. We can create this ${cake.cake_type} for an estimated quotation of ₹${cake.quoted_price || 1200}. Would you like us to proceed? 🎂`;
+
+                        const cakeStatus = cake.status || 'PENDING';
+                        const statusBadgeColors: Record<string, string> = {
+                          PENDING: 'bg-amber-50 text-amber-700 border border-amber-200',
+                          CONFIRMED: 'bg-blue-50 text-blue-700 border border-blue-200',
+                          BAKING: 'bg-pink-50 text-[#E4007C] border border-pink-200',
+                          READY: 'bg-emerald-50 text-emerald-700 border border-emerald-200',
+                          COMPLETED: 'bg-emerald-100 text-emerald-800 border border-emerald-300',
+                          CANCELLED: 'bg-slate-100 text-slate-600 border border-slate-200',
+                        };
+
+                        const cleanPhone = cake.customer_phone ? cake.customer_phone.replace(/\D/g, '') : '';
+                        const hasValidPhone = cleanPhone.length >= 6;
+
+                        return (
+                          <div
+                            key={cake.id}
+                            className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm hover:shadow-md transition-all flex flex-col justify-between"
+                          >
                             <div>
-                              <span className="font-bold text-sm text-slate-900">
-                                #{cake.request_number}
-                              </span>
-                              <span className="text-[11px] text-slate-400 block">
-                                For: {cake.event_date} ({cake.delivery_slot})
-                              </span>
-                            </div>
+                              <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+                                <div>
+                                  <span className="font-bold text-sm text-slate-900">
+                                    #{cake.request_number}
+                                  </span>
+                                  <span className="text-[11px] text-slate-400 block">
+                                    For: {cake.event_date} ({cake.delivery_slot})
+                                  </span>
+                                </div>
 
-                            <div className="flex items-center gap-1.5">
-                              <span
-                                className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full ${
-                                  statusBadgeColors[cakeStatus] || statusBadgeColors.PENDING
-                                }`}
-                              >
-                                {cakeStatus}
-                              </span>
-                              <button
-                                onClick={() => handleDeleteCakeRequest(cake.id, cake.request_number)}
-                                title="Delete inquiry"
-                                className="text-slate-300 hover:text-red-500 hover:bg-red-50 p-1 rounded-lg transition-all"
-                              >
-                                <Trash2 className="w-3.5 h-3.5" />
-                              </button>
-                            </div>
-                          </div>
-
-                          <div className="flex gap-4 py-3">
-                            {refImage && (
-                              <div className="w-20 h-20 rounded-xl overflow-hidden bg-slate-100 shrink-0 relative border border-slate-100">
-                                <Image
-                                  src={refImage}
-                                  alt="Reference Design"
-                                  fill
-                                  className="object-cover"
-                                />
+                                <div className="flex items-center gap-1.5">
+                                  <span
+                                    className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full ${
+                                      statusBadgeColors[cakeStatus] || statusBadgeColors.PENDING
+                                    }`}
+                                  >
+                                    {cakeStatus}
+                                  </span>
+                                  <button
+                                    onClick={() => handleDeleteCakeRequest(cake.id, cake.request_number)}
+                                    title="Delete inquiry"
+                                    className="text-slate-300 hover:text-red-500 hover:bg-red-50 p-1 rounded-lg transition-all cursor-pointer"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
+                                </div>
                               </div>
-                            )}
 
-                            <div className="text-xs space-y-1">
-                              <p className="font-bold text-slate-900">{cake.customer_name} ({cake.customer_phone})</p>
-                              <p className="text-[#E4007C] font-semibold">{cake.cake_type}</p>
-                              <p className="text-slate-500">{cake.sponge_flavor} + {cake.filling_flavor}</p>
-                              <p className="text-slate-400 font-medium">
-                                {cake.tier_count} Tier(s) • Approx. {cake.estimated_weight_kg} kg
-                              </p>
-                              {cake.message_on_cake && (
-                                <p className="text-[11px] text-slate-800 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-lg inline-block font-medium mt-1">
-                                  &ldquo;{cake.message_on_cake}&rdquo;
-                                </p>
+                              <div className="flex gap-4 py-3">
+                                {refImage && (
+                                  <div className="w-20 h-20 rounded-xl overflow-hidden bg-slate-100 shrink-0 relative border border-slate-100">
+                                    <Image
+                                      src={refImage}
+                                      alt="Reference Design"
+                                      fill
+                                      className="object-cover"
+                                    />
+                                  </div>
+                                )}
+
+                                <div className="text-xs space-y-1">
+                                  <p className="font-bold text-slate-900">{cake.customer_name} ({cake.customer_phone})</p>
+                                  <p className="text-[#E4007C] font-semibold">{cake.cake_type}</p>
+                                  <p className="text-slate-500">{cake.sponge_flavor} + {cake.filling_flavor}</p>
+                                  <p className="text-slate-400 font-medium">
+                                    {cake.tier_count} Tier(s) • Approx. {cake.estimated_weight_kg} kg
+                                  </p>
+                                  {cake.message_on_cake && (
+                                    <p className="text-[11px] text-slate-800 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-lg inline-block font-medium mt-1">
+                                      &ldquo;{cake.message_on_cake}&rdquo;
+                                    </p>
+                                  )}
+                                </div>
+                              </div>
+
+                              {cake.special_instructions && (
+                                <div className="p-2.5 rounded-xl bg-slate-50 text-[11px] text-slate-600 mb-3 border border-slate-100">
+                                  <strong>Note:</strong> {cake.special_instructions}
+                                </div>
                               )}
                             </div>
-                          </div>
 
-                          {cake.special_instructions && (
-                            <div className="p-2.5 rounded-xl bg-slate-50 text-[11px] text-slate-600 mb-3 border border-slate-100">
-                              <strong>Note:</strong> {cake.special_instructions}
-                            </div>
-                          )}
-                        </div>
-
-                        <div className="pt-3 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2.5">
-                          <div>
-                            <span className="text-[10px] text-slate-400 font-medium block">Quoted Price</span>
-                            <span className="font-bold text-base text-slate-900">
-                              ₹{cake.quoted_price || 1200}
-                            </span>
-                          </div>
-
-                          <div className="flex flex-wrap items-center gap-1.5">
-                            {/* WhatsApp Direct Reply */}
-                            {hasValidPhone && (
-                              <a
-                                href={`https://wa.me/${cleanPhone}?text=${encodeURIComponent(waReplyText)}`}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="px-3 py-1.5 rounded-xl bg-[#25D366] hover:bg-[#20ba59] text-white text-xs font-semibold flex items-center gap-1.5 transition-all shadow-xs"
-                              >
-                                <MessageCircle className="w-3.5 h-3.5" />
-                                <span>WhatsApp</span>
-                              </a>
-                            )}
-
-                            {/* Lifecycle / Complete Order Actions */}
-                            {(cakeStatus === 'PENDING' || !cakeStatus) && (
-                              <>
-                                <button
-                                  type="button"
-                                  onClick={() => handleUpdateCakeStatus(cake.id, 'CONFIRMED')}
-                                  className="px-3 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold transition-all shadow-xs cursor-pointer"
-                                >
-                                  Accept &amp; Confirm
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => handleConvertCakeToOrder(cake)}
-                                  className="px-3 py-1.5 rounded-xl bg-[#E4007C] hover:bg-[#D00070] text-white text-xs font-semibold flex items-center gap-1 transition-all shadow-xs cursor-pointer"
-                                  title="Convert to Live Kitchen Order and start baking"
-                                >
-                                  <Flame className="w-3.5 h-3.5" />
-                                  <span>Send to Oven</span>
-                                </button>
-                              </>
-                            )}
-
-                            {cakeStatus === 'CONFIRMED' && (
-                              <button
-                                type="button"
-                                onClick={() => handleUpdateCakeStatus(cake.id, 'BAKING')}
-                                className="px-3 py-1.5 rounded-xl bg-[#E4007C] hover:bg-[#D00070] text-white text-xs font-semibold flex items-center gap-1 transition-all shadow-xs cursor-pointer"
-                              >
-                                <Flame className="w-3.5 h-3.5" />
-                                <span>Start Baking</span>
-                              </button>
-                            )}
-
-                            {cakeStatus === 'BAKING' && (
-                              <div className="flex items-center gap-1.5">
-                                <button
-                                  type="button"
-                                  onClick={() => setActiveTab('orders')}
-                                  className="px-3 py-1.5 rounded-xl bg-pink-50 text-[#E4007C] border border-pink-200 hover:bg-pink-100 text-xs font-semibold flex items-center gap-1 transition-all cursor-pointer"
-                                >
-                                  <span>View in Live Orders →</span>
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => handleUpdateCakeStatus(cake.id, 'READY')}
-                                  className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold flex items-center gap-1 transition-all shadow-xs cursor-pointer"
-                                >
-                                  <CheckCircle className="w-3.5 h-3.5" />
-                                  <span>Mark Ready</span>
-                                </button>
+                            <div className="pt-3 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2.5">
+                              <div>
+                                <span className="text-[10px] text-slate-400 font-medium block">Quoted Price</span>
+                                <span className="font-bold text-base text-slate-900">
+                                  ₹{cake.quoted_price || 1200}
+                                </span>
                               </div>
-                            )}
 
-                            {cakeStatus === 'READY' && (
-                              <button
-                                type="button"
-                                onClick={() => handleUpdateCakeStatus(cake.id, 'COMPLETED')}
-                                className="px-3 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold flex items-center gap-1 transition-all shadow-xs cursor-pointer"
-                              >
-                                <Check className="w-3.5 h-3.5 text-emerald-400" />
-                                <span>Complete &amp; Deliver</span>
-                              </button>
-                            )}
+                              <div className="flex flex-wrap items-center gap-1.5">
+                                {/* WhatsApp Direct Reply */}
+                                {hasValidPhone && (
+                                  <a
+                                    href={`https://wa.me/${cleanPhone}?text=${encodeURIComponent(waReplyText)}`}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="px-3 py-1.5 rounded-xl bg-[#25D366] hover:bg-[#20ba59] text-white text-xs font-semibold flex items-center gap-1.5 transition-all shadow-xs"
+                                  >
+                                    <MessageCircle className="w-3.5 h-3.5" />
+                                    <span>WhatsApp</span>
+                                  </a>
+                                )}
 
-                            {cakeStatus === 'COMPLETED' && (
-                              <span className="px-3 py-1.5 rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-semibold flex items-center gap-1">
-                                <CheckCircle className="w-3.5 h-3.5 text-emerald-600" />
-                                <span>Order Completed</span>
-                              </span>
-                            )}
+                                {/* Lifecycle / Complete Order Actions */}
+                                {(cakeStatus === 'PENDING' || !cakeStatus) && (
+                                  <>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleUpdateCakeStatus(cake.id, 'CONFIRMED')}
+                                      className="px-3 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold transition-all shadow-xs cursor-pointer"
+                                    >
+                                      Accept &amp; Confirm
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleConvertCakeToOrder(cake)}
+                                      className="px-3 py-1.5 rounded-xl bg-[#E4007C] hover:bg-[#D00070] text-white text-xs font-semibold flex items-center gap-1 transition-all shadow-xs cursor-pointer"
+                                      title="Convert to Live Kitchen Order and start baking"
+                                    >
+                                      <Flame className="w-3.5 h-3.5" />
+                                      <span>Send to Oven</span>
+                                    </button>
+                                  </>
+                                )}
+
+                                {cakeStatus === 'CONFIRMED' && (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleUpdateCakeStatus(cake.id, 'BAKING')}
+                                    className="px-3 py-1.5 rounded-xl bg-[#E4007C] hover:bg-[#D00070] text-white text-xs font-semibold flex items-center gap-1 transition-all shadow-xs cursor-pointer"
+                                  >
+                                    <Flame className="w-3.5 h-3.5" />
+                                    <span>Start Baking</span>
+                                  </button>
+                                )}
+
+                                {cakeStatus === 'BAKING' && (
+                                  <div className="flex items-center gap-1.5">
+                                    <button
+                                      type="button"
+                                      onClick={() => setActiveTab('orders')}
+                                      className="px-3 py-1.5 rounded-xl bg-pink-50 text-[#E4007C] border border-pink-200 hover:bg-pink-100 text-xs font-semibold flex items-center gap-1 transition-all cursor-pointer"
+                                    >
+                                      <span>View in Live Orders →</span>
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleUpdateCakeStatus(cake.id, 'READY')}
+                                      className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold flex items-center gap-1 transition-all shadow-xs cursor-pointer"
+                                    >
+                                      <CheckCircle className="w-3.5 h-3.5" />
+                                      <span>Mark Ready</span>
+                                    </button>
+                                  </div>
+                                )}
+
+                                {cakeStatus === 'READY' && (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleUpdateCakeStatus(cake.id, 'COMPLETED')}
+                                    className="px-3 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold flex items-center gap-1 transition-all shadow-xs cursor-pointer"
+                                  >
+                                    <Check className="w-3.5 h-3.5 text-emerald-400" />
+                                    <span>Complete &amp; Deliver</span>
+                                  </button>
+                                )}
+
+                                {cakeStatus === 'COMPLETED' && (
+                                  <span className="px-3 py-1.5 rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-semibold flex items-center gap-1">
+                                    <CheckCircle className="w-3.5 h-3.5 text-emerald-600" />
+                                    <span>Order Completed</span>
+                                  </span>
+                                )}
+                              </div>
+                            </div>
                           </div>
-                        </div>
-                      </div>
-                    );
-                  })}
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* SUBTAB 2: STUDIO OPTIONS (STYLES, SPONGES, FILLINGS) */}
+              {customCakesSubTab === 'options' && (
+                <div className="space-y-4">
+                  {/* Filter & Action Bar */}
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-white p-4 rounded-2xl border border-slate-100 shadow-xs">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setStudioFilterType('all')}
+                        className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                          studioFilterType === 'all'
+                            ? 'bg-slate-900 text-white'
+                            : 'bg-slate-50 text-slate-600 hover:bg-slate-100'
+                        }`}
+                      >
+                        All ({studioOptions.length})
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setStudioFilterType('style')}
+                        className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                          studioFilterType === 'style'
+                            ? 'bg-[#E4007C] text-white'
+                            : 'bg-pink-50 text-[#E4007C] hover:bg-pink-100'
+                        }`}
+                      >
+                        Cake Styles ({studioOptions.filter((o) => o.type === 'style').length})
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setStudioFilterType('sponge')}
+                        className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                          studioFilterType === 'sponge'
+                            ? 'bg-amber-600 text-white'
+                            : 'bg-amber-50 text-amber-700 hover:bg-amber-100'
+                        }`}
+                      >
+                        Sponge Flavors ({studioOptions.filter((o) => o.type === 'sponge').length})
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setStudioFilterType('filling')}
+                        className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                          studioFilterType === 'filling'
+                            ? 'bg-emerald-600 text-white'
+                            : 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100'
+                        }`}
+                      >
+                        Fillings &amp; Frostings ({studioOptions.filter((o) => o.type === 'filling').length})
+                      </button>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => handleOpenCreateOption(studioFilterType === 'all' ? 'style' : studioFilterType)}
+                      className="px-4 py-2 rounded-xl bg-[#E4007C] hover:bg-[#D00070] text-white text-xs font-bold flex items-center gap-1.5 shadow-sm shadow-pink-500/20 transition-all cursor-pointer shrink-0"
+                    >
+                      <Plus className="w-4 h-4" />
+                      <span>Add Option</span>
+                    </button>
+                  </div>
+
+                  {/* Dynamic Sync Notice */}
+                  <div className="bg-pink-50/60 border border-pink-200/70 p-3.5 rounded-2xl flex items-center justify-between gap-3 text-xs text-[#E4007C]">
+                    <div className="flex items-center gap-2">
+                      <Sparkles className="w-4 h-4 shrink-0 text-[#E4007C]" />
+                      <span className="font-semibold">
+                        All Custom Cake studio options are completely dynamic with instant Supabase live synchronization.
+                      </span>
+                    </div>
+                    <span className="text-[11px] font-bold bg-[#FFE600] text-slate-900 px-2.5 py-0.5 rounded-full shrink-0">
+                      Live Studio Sync
+                    </span>
+                  </div>
+
+                  {/* Options Grid */}
+                  {studioOptions.filter((o) => studioFilterType === 'all' || o.type === studioFilterType).length === 0 ? (
+                    <div className="bg-white p-12 rounded-2xl text-center border border-slate-100 shadow-sm">
+                      <Cake className="w-10 h-10 text-slate-300 mx-auto mb-2" />
+                      <h3 className="text-base font-bold text-slate-700">No options found</h3>
+                      <p className="text-xs text-slate-400 mt-1">
+                        Click &ldquo;Add Option&rdquo; above to create dynamic cake styles, sponges, or fillings.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {studioOptions
+                        .filter((o) => studioFilterType === 'all' || o.type === studioFilterType)
+                        .map((opt) => {
+                          const typeBadge =
+                            opt.type === 'style'
+                              ? { label: 'Cake Style', cls: 'bg-pink-50 text-[#E4007C] border-pink-200' }
+                              : opt.type === 'sponge'
+                              ? { label: 'Sponge Flavor', cls: 'bg-amber-50 text-amber-700 border-amber-200' }
+                              : { label: 'Filling / Frosting', cls: 'bg-emerald-50 text-emerald-700 border-emerald-200' };
+
+                          return (
+                            <div
+                              key={opt.id}
+                              className={`bg-white p-4 rounded-2xl border transition-all flex flex-col justify-between ${
+                                opt.is_active
+                                  ? 'border-slate-100 shadow-xs hover:shadow-md'
+                                  : 'border-slate-200/60 opacity-60 bg-slate-50/50'
+                              }`}
+                            >
+                              <div>
+                                <div className="flex items-center justify-between gap-2 pb-2.5 border-b border-slate-100">
+                                  <span
+                                    className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${typeBadge.cls}`}
+                                  >
+                                    {typeBadge.label}
+                                  </span>
+
+                                  <div className="flex items-center gap-1.5">
+                                    <button
+                                      type="button"
+                                      onClick={() => handleToggleOptionActive(opt)}
+                                      className={`text-[10px] font-bold px-2 py-0.5 rounded-full border cursor-pointer transition-all ${
+                                        opt.is_active
+                                          ? 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100'
+                                          : 'bg-slate-100 text-slate-500 border-slate-200 hover:bg-slate-200'
+                                      }`}
+                                      title="Toggle Studio Visibility"
+                                    >
+                                      {opt.is_active ? '● Active' : '○ Inactive'}
+                                    </button>
+                                  </div>
+                                </div>
+
+                                <div className="pt-3 space-y-1.5">
+                                  <div className="flex items-start justify-between gap-2">
+                                    <h4 className="font-bold text-sm text-slate-900 leading-snug">
+                                      {opt.name}
+                                    </h4>
+                                    {opt.is_eggless && (
+                                      <span className="shrink-0 text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                        🌱 Eggless
+                                      </span>
+                                    )}
+                                  </div>
+
+                                  {opt.description && (
+                                    <p className="text-xs text-slate-500 line-clamp-2">
+                                      {opt.description}
+                                    </p>
+                                  )}
+                                </div>
+                              </div>
+
+                              <div className="pt-3 mt-3 border-t border-slate-100 flex items-center justify-between">
+                                <div>
+                                  {opt.type === 'style' || opt.base_price > 0 ? (
+                                    <div className="flex items-baseline gap-1">
+                                      <span className="text-[10px] text-slate-400 font-medium">Base</span>
+                                      <span className="text-xs font-bold text-slate-900">
+                                        ₹{opt.base_price}
+                                      </span>
+                                    </div>
+                                  ) : (
+                                    <span className="text-[10px] text-slate-400 font-medium">Included</span>
+                                  )}
+                                </div>
+
+                                <div className="flex items-center gap-1">
+                                  <button
+                                    type="button"
+                                    onClick={() => handleOpenEditOption(opt)}
+                                    className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
+                                    title="Edit Option"
+                                  >
+                                    <Edit2 className="w-3.5 h-3.5" />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleDeleteStudioOption(opt)}
+                                    className="p-1.5 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
+                                    title="Delete Option"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -2244,6 +2886,196 @@ export default function AdminDashboardPage() {
                       </>
                     ) : (
                       <>{editingProduct ? 'Update Item' : 'Add Item'}</>
+                    )}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* MODAL: STUDIO OPTION CRUD (STYLES, SPONGES, FILLINGS) */}
+        {isOptionModalOpen && (
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-in fade-in duration-200">
+            <div className="bg-white rounded-3xl max-w-lg w-full max-h-[90vh] overflow-y-auto p-6 shadow-2xl space-y-5 border border-slate-100">
+              <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+                <div>
+                  <h3 className="text-base font-bold text-slate-900">
+                    {editingOption ? 'Edit Studio Option' : 'Add Studio Option'}
+                  </h3>
+                  <p className="text-xs text-slate-400">
+                    Configure styles, base prices, sponges, or frostings for Custom Cake Studio.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsOptionModalOpen(false)}
+                  className="p-1.5 rounded-full hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-colors cursor-pointer"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <form onSubmit={handleSaveStudioOption} className="space-y-4">
+                {/* Option Type Selector */}
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                    Option Category *
+                  </label>
+                  <div className="grid grid-cols-3 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setFormOptType('style')}
+                      className={`py-2 px-3 rounded-xl text-xs font-bold border transition-all text-center cursor-pointer ${
+                        formOptType === 'style'
+                          ? 'bg-pink-50 border-[#E4007C] text-[#E4007C] shadow-xs'
+                          : 'border-slate-200 text-slate-600 hover:bg-slate-50'
+                      }`}
+                    >
+                      Cake Style
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setFormOptType('sponge')}
+                      className={`py-2 px-3 rounded-xl text-xs font-bold border transition-all text-center cursor-pointer ${
+                        formOptType === 'sponge'
+                          ? 'bg-amber-50 border-amber-500 text-amber-700 shadow-xs'
+                          : 'border-slate-200 text-slate-600 hover:bg-slate-50'
+                      }`}
+                    >
+                      Sponge Flavor
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setFormOptType('filling')}
+                      className={`py-2 px-3 rounded-xl text-xs font-bold border transition-all text-center cursor-pointer ${
+                        formOptType === 'filling'
+                          ? 'bg-emerald-50 border-emerald-500 text-emerald-700 shadow-xs'
+                          : 'border-slate-200 text-slate-600 hover:bg-slate-50'
+                      }`}
+                    >
+                      Filling / Frosting
+                    </button>
+                  </div>
+                </div>
+
+                {/* Name */}
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+                    Option Name *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder={
+                      formOptType === 'style'
+                        ? 'e.g., Buttercream Floral & Textured'
+                        : formOptType === 'sponge'
+                        ? 'e.g., Belgian Dark Chocolate Truffle'
+                        : 'e.g., Saffron Rabdi Infusion'
+                    }
+                    value={formOptName}
+                    onChange={(e) => setFormOptName(e.target.value)}
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs font-medium text-slate-900 focus:outline-none focus:border-[#E4007C] focus:ring-1 focus:ring-[#E4007C]"
+                  />
+                </div>
+
+                {/* Base Starting Price (specifically important for styles) */}
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">
+                      Base Starting Price (₹)
+                    </label>
+                    <span className="text-[10px] text-slate-400">
+                      {formOptType === 'style' ? 'Starting base used in cake quotation formula' : 'Extra surcharge if any'}
+                    </span>
+                  </div>
+                  <div className="relative">
+                    <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-xs">
+                      ₹
+                    </span>
+                    <input
+                      type="number"
+                      min="0"
+                      step="10"
+                      value={formOptBasePrice}
+                      onChange={(e) => setFormOptBasePrice(e.target.value === '' ? '' : Number(e.target.value))}
+                      className="w-full pl-8 pr-3.5 py-2.5 rounded-xl border border-slate-200 text-xs font-semibold text-slate-900 focus:outline-none focus:border-[#E4007C] focus:ring-1 focus:ring-[#E4007C]"
+                    />
+                  </div>
+                </div>
+
+                {/* Description */}
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+                    Description &amp; Aesthetic Notes
+                  </label>
+                  <textarea
+                    rows={3}
+                    placeholder="Describe piping details, toppings, visual aesthetic or ingredient highlights..."
+                    value={formOptDesc}
+                    onChange={(e) => setFormOptDesc(e.target.value)}
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs font-medium text-slate-900 focus:outline-none focus:border-[#E4007C] focus:ring-1 focus:ring-[#E4007C]"
+                  />
+                </div>
+
+                {/* Display Order */}
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+                    Display Sort Order
+                  </label>
+                  <input
+                    type="number"
+                    value={formOptOrder}
+                    onChange={(e) => setFormOptOrder(Number(e.target.value))}
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs font-medium text-slate-900 focus:outline-none focus:border-[#E4007C] focus:ring-1 focus:ring-[#E4007C]"
+                  />
+                </div>
+
+                {/* Checkboxes */}
+                <div className="flex items-center gap-6 pt-2 border-t border-slate-100">
+                  <label className="flex items-center gap-2 text-xs font-semibold text-emerald-700 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={formOptIsEggless}
+                      onChange={(e) => setFormOptIsEggless(e.target.checked)}
+                      className="w-4 h-4 rounded-sm text-emerald-600 focus:ring-emerald-500"
+                    />
+                    🌱 Pure Vegetarian / Eggless
+                  </label>
+
+                  <label className="flex items-center gap-2 text-xs font-semibold text-[#E4007C] cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={formOptIsActive}
+                      onChange={(e) => setFormOptIsActive(e.target.checked)}
+                      className="w-4 h-4 rounded-sm text-[#E4007C] focus:ring-pink-500"
+                    />
+                    Active (Show in Studio)
+                  </label>
+                </div>
+
+                {/* Actions */}
+                <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-100">
+                  <button
+                    type="button"
+                    onClick={() => setIsOptionModalOpen(false)}
+                    className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold transition-colors cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isSavingOption}
+                    className="px-5 py-2 rounded-xl bg-[#E4007C] hover:bg-[#D00070] text-white text-xs font-bold flex items-center gap-2 shadow-sm shadow-pink-500/20 transition-all cursor-pointer"
+                  >
+                    {isSavingOption ? (
+                      <>
+                        <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                        Saving...
+                      </>
+                    ) : (
+                      <>{editingOption ? 'Update Option' : 'Add Option'}</>
                     )}
                   </button>
                 </div>
